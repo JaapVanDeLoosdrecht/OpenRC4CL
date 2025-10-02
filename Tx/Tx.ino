@@ -1,5 +1,5 @@
 /* 
-OpenRC4CL V0.01 29Sep25
+OpenRC4CL V0.02 2 October 2025
 
 MIT license
 
@@ -24,7 +24,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // todo Switch as killswitch and potmeter (instel pot) in arm box for normal handle
 
 // Tx com5 black usb 
-// Tx mac 98:A3:16:61:1D:5C Rx mac 98:A3:16:61:12:D4
 
 #include "MacAddress.h"
 #include "WiFi.h"
@@ -32,8 +31,8 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // #define DEBUG
 #define LOG
-#define WIFI_CHANNEL 6
-const MacAddress macRx({0x98, 0xA3, 0x16, 0x61, 0x12, 0xD4}); 
+#define WIFI_CHANNEL 5
+const MacAddress macRx({0x??, 0x??, 0x??, 0x??, 0x??, 0x??});  // modify with mac address of Rx
 
 void debugTx(struct TxData &rc) {
   static int count = 0;

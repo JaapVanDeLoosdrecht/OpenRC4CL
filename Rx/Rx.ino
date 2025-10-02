@@ -1,5 +1,5 @@
 /* 
-OpenRC4CL V0.01 29Sep25
+OpenRC4CL V0.02 2 October 2025
 
 MIT license
 
@@ -28,7 +28,7 @@ Todo
 - Add optional pin for thr cut switch
 - using battery as powersupply
 - lipo monitoring and low bat, 
-  make settup with V divider using R for max 6S (or use 1 lipo only)
+  make setup with V divider using R for max 6S (or use 1 lipo only)
   use Schottky diode for protection?? and compensate diode loss in calculation
 - log own mac address at startup
 - soft mac address
@@ -38,15 +38,14 @@ Todo
 */
 
 // RX com7 white usb
-// Tx mac 98:A3:16:61:1D:5C Rx mac 98:A3:16:61:12:D4
 
 #include "MacAddress.h"
 #include "WiFi.h"
 #include "OpenRC4CL_util.h"
 
 #define LOG
-#define WIFI_CHANNEL 6
-const MacAddress macTx({0x98, 0xA3, 0x16, 0x61, 0x1D, 0x5C});
+#define WIFI_CHANNEL 5
+const MacAddress macTx({0x??, 0x??, 0x??, 0x??, 0x??, 0x??});  // modify with mac address of Tx
 
 const int maxFlight = 9;       // seconds
 const int warnEndFlight = 4;   // seconds before max
