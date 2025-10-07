@@ -29,7 +29,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-const char *OpenRC4CL_VERSION = "V0.03";
+const char *OpenRC4CL_VERSION = "V0.04";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
