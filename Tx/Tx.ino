@@ -1,5 +1,5 @@
 /* 
-OpenRC4CL V0.02 2 October 2025
+TX OpenRC4CL 5 October 2025
 
 MIT license
 
@@ -21,50 +21,31 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// todo Switch as killswitch and potmeter (instel pot) in arm box for normal handle
-
 // Tx com5 black usb 
 
-#include "MacAddress.h"
-#include "WiFi.h"
-#include "OpenRC4CL_util.h"
-
-// #define DEBUG
-#define LOG
+#include <MacAddress.h>
+#include <WiFi.h>
+#include "OpenRC4CL_util.h"  
+#include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_can and mac address
+#ifndef MAC_CHAN
 #define WIFI_CHANNEL 5
-const MacAddress macRx({0x??, 0x??, 0x??, 0x??, 0x??, 0x??});  // modify with mac address of Rx
+const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Rx
+#endif
 
-void debugTx(struct TxData &rc) {
-  static int count = 0;
-  static unsigned long time_start = millis();
-  const int NR_PACKETS = 50;
-  if (++count == NR_PACKETS) {
-    Serial.printf("[Tx] id:%d, thr:%d, ch1:%d, avg_ms:%d\n", 
-                  rc.id, rc.throttle, rc.chan1, (millis() - time_start) / NR_PACKETS);
-    time_start = millis();
-    count = 0;
-  }
-}
+const int pinThrottle = A0;
+const int pinThrottleHold = D3;
+const int pinLeftCh1 = D4;
+const int pinRightCh1 = D5;
 
 class Tx : public RcPeer {
 public:
   Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk): RcPeer(mac_rx, channel, iface, lmk) {}
   void sendTx() {
-    const int pinThrottle = D0;
-    const int pinLeft = D2;
-    const int pinRight = D3;
-    static Potmeter throttle(pinThrottle);
-    static Switch chan1(pinLeft, pinRight);
-    static int id = 0;
-    struct TxData rc;
-    rc.id = ++id;
-    rc.throttle = throttle.Read();
-    rc.chan1 = chan1.readTx(); 
+    int thr = throttle.Read();
+    if (hold.read() == Switch::left) thr = TxThrottleHoldPulse;
+    struct TxData rc{0, ++id, thr, chan1.readTx()}; 
     rc.checkSum = CheckSum(rc);
-    bool s = this->send_data((uint8_t *)&rc, sizeof(rc));
-    #ifdef DEBUG
-    if (s) debugTx(rc); else Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
-    #endif
+    if (!this->send_data((uint8_t *)&rc, sizeof(rc))) Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {
     struct Telemetry tel = *(struct Telemetry *)data;
@@ -72,10 +53,13 @@ public:
       Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
-    #ifdef LOG
-      Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, mtime:%d\n", tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.max_time);
-    #endif
+    Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, mtime:%d\n", tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.max_time);
   }
+private:
+  Potmeter throttle{pinThrottle};
+  Switch hold{pinThrottleHold};
+  Switch chan1{pinLeftCh1, pinRightCh1};
+  int id = 0;
 };
 
 Tx tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
@@ -88,7 +72,8 @@ void setup() {
     Serial.printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  Serial.printf("Tx channel: %d, MAC Address: %s, ESP-NOW version: %d\n", WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+  Serial.printf("OpenRC4CL %s, Tx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
+                 OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
 }
 
 void loop() {

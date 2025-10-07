@@ -1,5 +1,5 @@
 /* 
-OpenRC4CL V0.01 29Sep25
+Utils for OpenRC4CL 4 October 2025
 
 MIT license
 
@@ -21,13 +21,15 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef OpenRC4CL_util_h
-#define OpenRC4CL_util_h
+#ifndef OpenRC4CL_util
+#define OpenRC4CL_util
 
-#include "ESP32_NOW.h"
-#include "MacAddress.h"
-#include "WiFi.h"
+#include <ESP32_NOW.h>
+#include <MacAddress.h>
+#include <WiFi.h>
 #include <ESP32Servo.h>
+
+const char *OpenRC4CL_VERSION = "V0.03";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
@@ -38,119 +40,142 @@ inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.
 const int TxMinPulse = 1000;  // us
 const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
+const int TxThrottleHoldPulse = TxMinPulse - 100;
 
-class RcTimer {
+class RcTimer { 
 public:
   static const int TicksPerSec = 1000;
-  RcTimer(int secs) { 
-    this->secs = secs; 
-    this->start(secs); 
-  }
+  RcTimer(int secs) { start(_secs = secs); }
   void start(int secs = 0) { 
-    this->begin = millis();
-    if (secs > 0) this->secs = secs; 
-    this->end = this->begin + this->secs * TicksPerSec;
+    begin = millis();
+    if (secs > 0) _secs = secs; 
+    end = begin + _secs * TicksPerSec;
   }
-  bool elapsed() { return millis() > this->end; }
-  int time() { return (millis() - this->begin); }
+  bool elapsed() { return millis() > end; }
+  int time() { return (millis() - begin); }
   int time2secs(int time) { return time / TicksPerSec; }
-  int seconds() { return this->time2secs(this->time()); } 
-  void log() { Serial.printf("[T] t:%d, s:%d, b:%d, e:%d\n", this->seconds(), this->secs, this->begin, this->end); } 
-  int secs;
+  int seconds() { return time2secs(time()); }
+  void setEnd(int time) { end = time; }  
+  void log() { Serial.printf("[T] t:%d, s:%d, b:%d, e:%d\n", seconds(), _secs, begin, end); } 
+private:
+  int _secs;
   unsigned long begin, end;
 };
 
 class RcServo {  // Note in standard RC connector the middle connector is always Vcc
 public:
   RcServo(int pin, int min=TxMinPulse, int max=TxMaxPulse, int mid=0, int fail=-1, bool reverse=false) {  // -1 = last position
-    this->set(min, max, mid, fail, reverse);
-    this->servo.attach(pin, min, max);
-	this->failsafe();
+    set(min, max, mid, fail, reverse);
+    servo.attach(pin, min, max);
+	failsafe();
   }
-  ~RcServo() { this->servo.detach(); }
+  ~RcServo() { servo.detach(); }
   void set(int min=TxMinPulse, int max=TxMaxPulse, int mid=0, int fail=-1, bool reverse=false) { 
-    this->min = min; this->max = max; this->mid = mid; this->fail = fail;
-	if (reverse) {this->min = max; this->max = min;}
+    _min = min; _max = max; _mid = mid; _fail = fail;
+	if (reverse) {_min = max; _max = min;}
   }
-  void writeTx(int txValue) { this->write(map(txValue + this->mid, TxMinPulse, TxMaxPulse, this->min, this->max)); }
-  void write(int usValue) { this->servo.writeMicroseconds(usValue); }
-  void failsafe() { if (this->fail >= 0) this->writeTx(this->fail); }
-  int read() { return this->servo.readMicroseconds(); }
-private:
+  void writeTx(int txValue) { write(map(txValue + _mid, TxMinPulse, TxMaxPulse, _min, _max)); }
+  void write(int usValue) { servo.writeMicroseconds(usValue); }
+  void failsafe() { if (_fail >= 0) writeTx(_fail); }
+  int read() { return servo.readMicroseconds(); }
+  int failSaveValue() { return _fail; }
+protected:
   Servo servo;
-  int min, max, mid, fail;
+  int _min, _max, _mid, _fail;
 };
 
-class Throttle : public RcServo {
+class Throttle : public RcServo { 
 public:
-  Throttle(int pin, RcTimer &timer, int setTimer=0, int maxFlight=0, int warnEndFlight=5, int nrWarns=2, bool reverse=false) : 
+  Throttle(int pin, RcTimer *rctimer=0, int minThrottle=0, int maxFlightSecs=0, 
+           int warnEndFlightSecs=5, int nrWarns=2, bool reverse=false) : 
            RcServo(pin, TxMinPulse, TxMaxPulse, 0, TxMinPulse-100, reverse) {
-	this->timer = &timer;
-    this->setTimer = setTimer;
-    this->timerSet = setTimer == 0;
-    this->maxFlight = maxFlight;          // secs 
-	this->warnEndFlight = warnEndFlight;  // secs
-	this->nrWarns = nrWarns;
-    this->warnTime = (maxFlight - warnEndFlight) * RcTimer::TicksPerSec;
-    this->endWarnTime = this->warnTime  + nrWarns * RcTimer::TicksPerSec;
+	timer = rctimer;
+    minThr = minThrottle;
+    timerSet = minThrottle == 0;
+    maxFlight = maxFlightSecs;         
+	warnEndFlight = warnEndFlightSecs; 
+	nrWarn = nrWarns;
+	setWarn();
   }
-  void writeTx(int txValue) {
+  int writeTx(int txValue) {
     int v = txValue;
-    if ((!this->timerSet) && (this->setTimer > 0) && (v > this->setTimer)) {
-      timer->start(this->maxFlight);
-      this->timerSet = true;
+    if ((!timerSet) && (minThr > 0) && (v > minThr)) {
+      timer->start(maxFlight);
+      timerSet = true;
     }
-    if (this->timerSet && (this->maxFlight > 0)) {    
-      if (timer->elapsed()) { RcServo::failsafe(); return; }
+    if (timerSet && (maxFlight > 0)) {    
+      if (timer->elapsed()) { RcServo::failsafe(); return failSaveValue(); }
       int t = timer->time();
-      if ((t >= this->warnTime) && (t < this->endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
-        v /= 2;
+      if ((t >= warnTime) && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
+		if (_min < _max)
+          v = _min + (v-_min) / 2;  // normal
+		else
+          v = _max - (_max-v) / 2;  // reverse
     }
     RcServo::writeTx(v);
+	return v;
   }
   void WarningNow() { 
-	  this->timerSet = true;
-	  this->warnTime = millis();
-	  this->endWarnTime = this->warnTime + this->nrWarns * RcTimer::TicksPerSec;
-	  this->timer->end = this->warnTime + this->warnEndFlight * RcTimer::TicksPerSec;
+	timerSet = true;
+	warnTime = millis();
+	endWarnTime = warnTime + nrWarn * RcTimer::TicksPerSec;
+	timer->setEnd(warnTime + warnEndFlight * RcTimer::TicksPerSec);
   } 
+  void resetTimer(int maxFlightSecs) {
+	maxFlight = maxFlightSecs;
+    timer->start(maxFlight);
+    timerSet = true;
+	setWarn();
+  }
 private:
   RcTimer *timer;
   bool timerSet;
-  int setTimer, maxFlight, warnEndFlight, nrWarns, endWarn;      
+  int minThr, maxFlight, warnEndFlight, nrWarn, endWarn;      
   unsigned long warnTime, endWarnTime;  
+  void setWarn() {
+    this->warnTime = (maxFlight - warnEndFlight) * RcTimer::TicksPerSec;
+	this->endWarnTime = this->warnTime  + nrWarn * RcTimer::TicksPerSec;
+  }
 };
 
-// NOTE: fallback is middle if switch becomes disconnected!
-class Switch {  // 3 (or 2) pos switch, middle to GND, left and right to digital outputs, no external pullup Rs
-public:
-  enum Pos3 {middle, left, right};
+class PushButton {  // one end to GND, other end to digital input, no external pullup Rs
+public:             // note: the two pins on each side, close to each other, are connected 
+  PushButton(int pin) { _pin = pin; pinMode(_pin, INPUT_PULLUP); }
+  bool read() { return !digitalRead(_pin); }   // LOW (pushed) or HIGH (not pushed)
+private:
+  int _pin;
+};
+
+class Switch {  // 3 (or 2) pos switch, middle to GND, left and right to digital inputs, no external pullup Rs
+public:         // NOTE: fallback is middle (3 pos) or right (2 pos) if switch becomes disconnected! 
+  enum Pos {middle, left, right};
   Switch(int pinLeft, int pinRight=-1) {
-    this->pinLeft = pinLeft; this->pinRight = pinRight;
-    pinMode(pinLeft, INPUT_PULLUP); 
-    if (pinRight >= 0) pinMode(pinRight, INPUT_PULLUP);
+	leftP = new PushButton(pinLeft);
+    if (pinRight >= 0) rightP = new PushButton(pinRight); else rightP = 0;
   }
-  Pos3 read() { 
-    int res = (int)!digitalRead(this->pinLeft);
-    if (pinRight >= 0) res += 2 * (int)!digitalRead(this->pinRight);
-    return (Pos3)res; 
+  Pos read() { 
+    int res = (int)(leftP->read());
+    if (rightP) res += 2 * (int)(rightP->read());
+    return (Pos)res; 
   }
   int readTx() {
-	static const int tab[] = {TxMidPulse, TxMinPulse, TxMaxPulse}; 
-	return tab[this->read()];
+	static const int tab3[] = {TxMidPulse, TxMinPulse, TxMaxPulse}; 
+	static const int tab2[] = {TxMinPulse, TxMaxPulse};
+    Pos p = this->read();	
+	if (rightP) return tab3[p]; else return tab2[p];
   }
 private:
-  int pinLeft, pinRight;
+  PushButton *leftP, *rightP;
 };
 
-class Potmeter {  // use 10Kohm and 3.3V (NOT 5V)
+class Potmeter {  // use 10K ohm and 3.3V (NOT 5V)
 public:
-  Potmeter(int pin, int min=TxMinPulse, int max=TxMaxPulse) { this->pin = pin; this->min = min; this->max = max; }
-  int Read() { return map(this->ReadV(), 0, this->vref, this->min, this->max); }  // ESP32-C6 analogReadMilliVolt is factory calibrated, analogRead returns raw ADC value.
-  int ReadV() { return analogReadMilliVolts(this->pin); }
+  Potmeter(int pin, int min=TxMinPulse, int max=TxMaxPulse) { _pin = pin; _min = min; _max = max; }
+  int Read() { return map(ReadV(), 0, vref, _min, _max); }  // ESP32-C6 analogReadMilliVolt is factory calibrated, analogRead returns raw ADC value.
+  int ReadV() { return analogReadMilliVolts(_pin); }
 private:
   const int vref = 3350; 
-  int pin, min, max;
+  int _pin, _min, _max;
 };
 
 class RcPeer : public ESP_NOW_Peer {  

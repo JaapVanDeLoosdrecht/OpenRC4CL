@@ -1,0 +1,18 @@
+Todo:
+- blink buildin led for status
+- move max throttle functionality from Rx to Tx, clipper in Tx  (frees an analog input on Rx)
+- move max time functionality from Rx to Tx buzzer ??? (frees an analog input on Rx)
+- lipo monitoring and low bat, 
+  make settup with V divider using R for max 6S (or use 1 lipo only)
+  use Schottky diode for protection?? and compensate diode loss in calculation
+- softstart option for CLtimer ??
+- active buzzer on Tx
+- switch as killswitch and potmeter (instel pot) in arm box for normal handle
+- first tx throttle = 0 before start throttle > 0  OR kill push button on Rx
+- Add optional pin for throttle cut switch
+- using battery as powersupply
+- soft mac address
+- paper display on TX
+- use IMU as crash sensor to kill engine
+- use the BluetoothSerial.h for logging with Bluetooth Terminal App (Google play)
+

@@ -1,0 +1,17 @@
+Third Party Programs File
+
+This file contains the list of third party software ("third party programs")
+contained in this repository and their required notices and/or license
+terms. This third party software, even if included with the distribution of
+this repository, may be governed by separate license terms, including
+without limitation, third party license terms, and open source software license terms.
+
+Third party programs and their corresponding required notices and/or license
+terms are listed below.
+
+-------------------------------------------------------------
+
+1. ESP32Servo
+   License: GLPL 2.1
+   https://docs.arduino.cc/libraries/esp32servo/
+
