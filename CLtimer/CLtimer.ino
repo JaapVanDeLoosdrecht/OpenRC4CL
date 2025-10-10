@@ -1,5 +1,5 @@
 /* 
-CL Timer OpenRC4CL 5 October 2025
+CL Timer OpenRC4CL 8 October 2025
 
 MIT license
 
@@ -26,8 +26,8 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "OpenRC4CL_util.h"
 
 const int maxFlight = 6*60;    // seconds
-const int warnEndFlight = 3;   // seconds before max
-const int nrWarns = 2;
+const int warnEndFlight = 6;   // seconds before max
+const int nrWarns = 3;
 
 const int pinESC = A0;
 const int pinMaxTime = A1;  

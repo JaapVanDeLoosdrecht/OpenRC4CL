@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 5 October 2025
+Rx OpenRC4CL 10 October 2025
 
 MIT license
 
@@ -28,11 +28,11 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "OpenRC4CL_util.h"
 #include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_can and mac address
 #ifndef MAC_CHAN
-#define WIFI_CHANNEL 5
+#define WIFI_CHANNEL 6
 const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Tx
 #endif
 
-const int maxFlight = 9;    // seconds
+const int maxFlight = 15;    // seconds
 const int warnEndFlight = 3;   // seconds before max
 const int nrWarns = 2;
 const int minThrottle = TxMidPulse;  // min trhottle value to start timer, 0 = no restart timer 
@@ -45,7 +45,8 @@ const unsigned long FAILSAFE_TIME = 500;    // ms
 
 class Rx : public RcPeer {  
 public:
-  Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : RcPeer(mac_tx, channel, iface, lmk) {}
+  Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : 
+    RcPeer(mac_tx, channel, iface, lmk) { throttle.failsafe(); chan1.failsafe();  }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) { 
     int thr = -1;
     struct TxData rc = *(struct TxData *)data;  // copy received data
@@ -61,36 +62,37 @@ public:
       if (lastId > 0) packetsLost += rc.id - lastId - 1;
       lastId = rc.id;
     } else {
-      packetsLost++;
+      packetsLost++; totalLost++;
     }
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
-      struct Telemetry tel = {0, rc.id, 0, 123, max(NR_PACKETS-packetsLost,0), timer.elapsed()};
+      int rsi =  max(NR_PACKETS-packetsLost,0);
+      struct Telemetry tel = {0, rc.id, 0, 123, rsi, timer.secondsLeft(), totalLost};
       tel.checkSum = CheckSum(tel);
       send_data((const uint8_t *)&tel, sizeof(tel));
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      Serial.printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ms:%d, lost:%d, t:%d\n", 
-                    rc.id, thr, rc.throttle, rc.chan1, avg_time, packetsLost, timer.seconds());
+      Serial.printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ms:%d, rsi:%d, t:%d, lost:%d\n", 
+                    rc.id, thr, rc.throttle, rc.chan1, avg_time, rsi, timer.secondsLeft(), totalLost);
       count = packetsLost = 0;
       timeLast1st = now;
     }
   }
-  void failsafe() { throttle.failsafe(); chan1.failsafe(); }
   void checkFailsafe() { 
-    unsigned long last = timeLastTx;  // copy of last before geting now
+    unsigned long last = timeLastTx;     // copy of last before geting now
     unsigned long now = millis();
-    if ((now - last) > FAILSAFE_TIME) {      // note check can be interrupted by callback, abs doesn't work on unsigned
-      failsafe();
+    if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
+      throttle.warnAndStop(); 
+      chan1.failsafe();
       Serial.printf("FAILSAFE!!!!\n");
-      timeLastTx = now;               // another test in FAILSAFE_TIME
+      timeLastTx = now;                  // another test in FAILSAFE_TIME
     }
   }
   void checkVBatt() {    // WIP
     // static bool warnOnce = false;
     // if (!warnOnce && (timer.seconds() > 3)) {
-    //   throttle.WarningNow();
+    //   throttle.warnAndStop();
     //   warnOnce = true;
-    //   Serial.printf("FAILSAFE!!!!\n");
+    //   Serial.printf("Bat low!!!!\n");
     // }
   }
 private:
@@ -99,19 +101,14 @@ private:
   Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, warnEndFlight, nrWarns};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
   bool connected = false;
-  int thrMax = -1;
-  unsigned long timeLastTx = 0;
-  int lastId = -1;                     
-  int count = -1;
-  int packetsLost = 0;
-  unsigned long timeLast1st = 0;           // time last 1st packadge
+  unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
+  int thrMax = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
 };
 
 Rx rx(macTx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
 
 void setup() {
   Serial.begin(115200);
-  rx.failsafe();
   WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx.add_self())) {

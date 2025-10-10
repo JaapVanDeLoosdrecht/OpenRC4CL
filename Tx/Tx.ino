@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 5 October 2025
+TX OpenRC4CL 10 October 2025
 
 MIT license
 
@@ -28,7 +28,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "OpenRC4CL_util.h"  
 #include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_can and mac address
 #ifndef MAC_CHAN
-#define WIFI_CHANNEL 5
+#define WIFI_CHANNEL 6
 const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Rx
 #endif
 
@@ -42,7 +42,7 @@ public:
   Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk): RcPeer(mac_rx, channel, iface, lmk) {}
   void sendTx() {
     int thr = throttle.Read();
-    if (hold.read() == Switch::left) thr = TxThrottleHoldPulse;
+    if (hold.read() == Switch::middle) thr = TxThrottleHoldPulse;
     struct TxData rc{0, ++id, thr, chan1.readTx()}; 
     rc.checkSum = CheckSum(rc);
     if (!this->send_data((uint8_t *)&rc, sizeof(rc))) Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
@@ -53,7 +53,8 @@ public:
       Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
-    Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, mtime:%d\n", tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.max_time);
+    Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, lost:%d\n", 
+                   tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.totalLost);
   }
 private:
   Potmeter throttle{pinThrottle};
