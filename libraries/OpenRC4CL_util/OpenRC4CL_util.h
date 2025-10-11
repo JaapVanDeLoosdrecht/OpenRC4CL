@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 10 October 2025
+Utils for OpenRC4CL 11 October 2025
 
 MIT license
 
@@ -29,7 +29,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-const char *OpenRC4CL_VERSION = "0.0.5";
+const char *OpenRC4CL_VERSION = "0.0.6";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
@@ -47,6 +47,15 @@ int avgAnalogMilliVolts(int pin, int nrSamples) {
   int sum = 0; for(int i = 0; i < nrSamples; i++) sum += analogReadMilliVolts(pin);
   return sum / nrSamples;
 }
+
+class BlinkLed {  // 0 hz is always on
+public:
+  BlinkLed(int pin, float hz) { pinMode(pin, OUTPUT); _pin = pin; setHz(hz); }
+  void setHz(float hz) { ms = (hz != 0) ? (int)(1000 / hz) : 0; } 
+  void update() { digitalWrite(_pin, ((ms == 0) || (millis() % ms <= ms / 2)) ? LOW : HIGH); }
+private:
+  int _pin, ms;
+};
 
 class PushButton {  // one end to GND, other end to digital input, no external pullup Rs
 public:             // note: the two pins on each side, close to each other, are connected 
@@ -96,7 +105,7 @@ public:
   int seconds() { return time2secs(time()); }
   int secondsLeft () {return _secs - seconds(); }
   void setEnd(int secs) { _secs = secs; end = begin + _secs * TicksPerSec; }  
-  void log() { Serial.printf("[T] t:%d, s:%d, b:%d, e:%d\n", seconds(), _secs, begin, end); } 
+  void log() { Serial.printf("[T] m:%d, t:%d, s:%d, b:%d, e:%d\n", millis(), seconds(), _secs, begin, end); } 
 private:
   int _secs;
   unsigned long begin, end;

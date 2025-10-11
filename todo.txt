@@ -1,7 +1,6 @@
 Todo:
-- add laast position to serv0 (and move from Throttle)
-- blink buildin led for status
-- use dipswitch for selecting timer of VBattLow in CLTimer
+- blink buildin led for status CLTimer
+- use dipswitch of mini schakelaar for selecting timer of VBattLow in CLTimer
 - use 4 dipswitch te select channel nr in Rx and Tx
 - add max time functionality to Tx buzzer ??? (optional timer on Rx, frees an analog input on Rx)
 - lipo monitoring and low bat, 
@@ -19,5 +18,4 @@ Todo:
 - use the BluetoothSerial.h for logging with Bluetooth Terminal App (Google play)
 
 Changed:
-- added avgAnalogMilliVolts(int pin, int nrSamples) and use in Throttle etc
-- failsafe action throttle is warning and stop
+

@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 10 October 2025
+Rx OpenRC4CL 11 October 2025
 
 MIT license
 
@@ -32,31 +32,36 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Tx
 #endif
 
-const int maxFlight = 15;    // seconds
+const int maxFlight = 9;    // seconds
 const int warnEndFlight = 3;   // seconds before max
 const int nrWarns = 2;
 const int minThrottle = TxMidPulse;  // min trhottle value to start timer, 0 = no restart timer 
 
+const int pinLed = LED_BUILTIN;
 const int pinThrottle = A0;
 const int pinChan1 = A1;                    // todo enable again. find another anologe pin or use digital pin
 const int pinMaxThrottle = A2;
 const int NR_PACKETS = 50;                  // nr packets for telemetry and logging
 const unsigned long FAILSAFE_TIME = 500;    // ms
 
+const float ledOk = 0;  // status led in hz
+const float ledWait4Tx = 0.5;
+const float ledEndFlight = 0.25;
+const float ledFailsafe = 3;
+const float ledError = 10;
+
 class Rx : public RcPeer {  
 public:
-  Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : 
-    RcPeer(mac_tx, channel, iface, lmk) { throttle.failsafe(); chan1.failsafe();  }
-  void onReceive(const uint8_t *data, size_t len, bool broadcast) { 
-    int thr = -1;
-    struct TxData rc = *(struct TxData *)data;  // copy received data
-    unsigned long now = millis();
-    if (!connected) { connected = true; timer.start(); }  // timer can be reset using first minimal throttle command
+  Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : RcPeer(mac_tx, channel, iface, lmk) { 
+    throttle.failsafe(); chan1.failsafe(); 
+  }
+  void command(struct TxData &rc, unsigned long now) {
+    if (!connected) { connected = true; timer.start(); led.setHz(ledOk); }  // timer can be reset using first minimal throttle command
     if (CheckSum(rc) == rc.checkSum) { 
       timeLastTx = now;
       int mThr = maxThrottle.Read();
       if (abs(thrMax-mThr) > 5) thrMax = mThr;
-      thr = throttle.writeTx(min(rc.throttle, thrMax));
+      thrLast = throttle.writeTx(min(rc.throttle, thrMax));
       chan1.writeTx(rc.chan1);
       if (rc.id < 100) { packetsLost = 0; lastId = -1; count = -1; }  // new Tx   
       if (lastId > 0) packetsLost += rc.id - lastId - 1;
@@ -64,6 +69,8 @@ public:
     } else {
       packetsLost++; totalLost++;
     }
+  }
+  void telemetry(struct TxData &rc, unsigned long now) {
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
@@ -72,20 +79,33 @@ public:
       send_data((const uint8_t *)&tel, sizeof(tel));
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
       Serial.printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ms:%d, rsi:%d, t:%d, lost:%d\n", 
-                    rc.id, thr, rc.throttle, rc.chan1, avg_time, rsi, timer.secondsLeft(), totalLost);
+                    rc.id, thrLast, rc.throttle, rc.chan1, avg_time, rsi, timer.secondsLeft(), totalLost);
+      led.setHz((packetsLost > 0) ? ledError : ledOk);
       count = packetsLost = 0;
       timeLast1st = now;
     }
   }
-  void checkFailsafe() { 
-    unsigned long last = timeLastTx;     // copy of last before geting now
+  void onReceive(const uint8_t *data, size_t len, bool broadcast) { 
+    struct TxData rc = *(struct TxData *)data;  // copy received data
     unsigned long now = millis();
-    if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
-      throttle.warnAndStop(); 
-      chan1.failsafe();
-      Serial.printf("FAILSAFE!!!!\n");
-      timeLastTx = now;                  // another test in FAILSAFE_TIME
+    command(rc, now);
+    telemetry(rc, now);
+    if (timer.elapsed()) led.setHz(ledEndFlight);
+    led.update();
+  }
+  void checkFailsafe() { 
+    if (connected) {
+      unsigned long last = timeLastTx;     // copy of last before geting now
+      unsigned long now = millis();
+      if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
+        if (timer.elapsed()) throttle.failsafe(); else throttle.warnAndStop();
+        chan1.failsafe();
+        led.setHz(ledFailsafe);
+        Serial.printf("FAILSAFE!!!!\n");
+        timeLastTx = now;                  // another test in FAILSAFE_TIME
+      }
     }
+    led.update();
   }
   void checkVBatt() {    // WIP
     // static bool warnOnce = false;
@@ -100,9 +120,10 @@ private:
   RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
   Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, warnEndFlight, nrWarns};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
+  BlinkLed led{pinLed, ledWait4Tx};
   bool connected = false;
   unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
-  int thrMax = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
+  int thrLast = -1, thrMax = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
 };
 
 Rx rx(macTx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
