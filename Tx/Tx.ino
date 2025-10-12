@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 11 October 2025
+TX OpenRC4CL 12 October 2025
 
 MIT license
 
@@ -38,10 +38,6 @@ const int pinThrottleHold = D3;
 const int pinLeftCh1 = D4;
 const int pinRightCh1 = D5;
 
-const float ledOk = 0;  // status led in hz
-const float ledWait4Rx = 0.5;
-const float ledError = 10;
-
 class Tx : public RcPeer {
 public:
   Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk): RcPeer(mac_rx, channel, iface, lmk) {}
@@ -51,7 +47,7 @@ public:
     struct TxData rc{0, ++id, thr, chan1.readTx()}; 
     rc.checkSum = CheckSum(rc);
     if ((!this->send_data((uint8_t *)&rc, sizeof(rc))) && connected) {
-      led.setHz(ledError);
+      led.setPulse(LedError);
       Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
     }
     led.update();
@@ -60,11 +56,11 @@ public:
     struct Telemetry tel = *(struct Telemetry *)data;
     connected = true;
     if (CheckSum(tel) != tel.checkSum) { 
-      led.setHz(ledError);
+      led.setPulse(LedError);
       Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
-    led.setHz(ledOk);
+    led.setPulse(LedOk);
     Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, lost:%d\n", 
                    tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.totalLost);
   }
@@ -72,7 +68,7 @@ private:
   Potmeter throttle{pinThrottle};
   Switch hold{pinThrottleHold};
   Switch chan1{pinLeftCh1, pinRightCh1};
-  BlinkLed led{pinLed, ledWait4Rx};
+  BlinkLed led{pinLed, LedWaitTxRx};
   bool connected = false;
   int id = 0;
 };

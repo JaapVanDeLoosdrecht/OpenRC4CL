@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 11 October 2025
+Utils for OpenRC4CL 12 October 2025
 
 MIT license
 
@@ -29,7 +29,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-const char *OpenRC4CL_VERSION = "0.0.6";
+const char *OpenRC4CL_VERSION = "0.0.7";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
@@ -37,24 +37,31 @@ inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; }
 struct Telemetry { int checkSum; int id; int vBatLow; int vBat; int rsi; int time_left; int totalLost; };
 inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.rsi ^ t.time_left ^t.totalLost; }
 
-const int TxMinPulse = 1000;  // us
+const int TxMinPulse = 1000;  // Tx pulses in us
 const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
+
+const int LedOk = 0;  // status blink led in ms pulse width
+const int LedWaitStart = 2000;
+const int LedWaitTxRx = 2000;
+const int LedEndFlight = 4000;
+const int LedFailsafe = 300;
+const int LedError = 100;
 
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   int sum = 0; for(int i = 0; i < nrSamples; i++) sum += analogReadMilliVolts(pin);
   return sum / nrSamples;
 }
 
-class BlinkLed {  // 0 hz is always on
+class BlinkLed {  // 0 ms is always on
 public:
-  BlinkLed(int pin, float hz) { pinMode(pin, OUTPUT); _pin = pin; setHz(hz); }
-  void setHz(float hz) { ms = (hz != 0) ? (int)(1000 / hz) : 0; } 
-  void update() { digitalWrite(_pin, ((ms == 0) || (millis() % ms <= ms / 2)) ? LOW : HIGH); }
+  BlinkLed(int pin, int ms) { pinMode(pin, OUTPUT); _pin = pin; setPulse(ms); }
+  void setPulse(int ms) { _ms = ms; } 
+  void update() { digitalWrite(_pin, ((_ms == 0) || (millis() % _ms <= _ms / 2)) ? LOW : HIGH); }
 private:
-  int _pin, ms;
+  int _pin, _ms;
 };
 
 class PushButton {  // one end to GND, other end to digital input, no external pullup Rs
@@ -159,7 +166,8 @@ public:
     RcServo::writeTx(v);
 	return v;
   }
-  void warnAndStop() { // initiate end warning and stop
+  void resetTimer(int maxFlightSecs) { timer->start(maxFlight=maxFlightSecs); setWarnTime(); }  // used by CLTimer
+  void warnAndStop() { // initiate end warning and stop, used by failsafe and batt low
     if (timer) {
       if (!stop) { 
         timer->setEnd(maxFlight = timer->seconds() + warnEndFlight);

@@ -1,5 +1,5 @@
 /* 
-CL Timer OpenRC4CL 8 October 2025
+CL Timer OpenRC4CL 12 October 2025
 
 MIT license
 
@@ -25,11 +25,12 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "OpenRC4CL_util.h"
 
-const int maxFlight = 6*60;    // seconds
+const int maxFlight = 7*60;    // seconds
 const int warnEndFlight = 6;   // seconds before max
-const int nrWarns = 3;
+const int nrWarns = 2;
 
-const int pinESC = A0;
+const int pinLed = LED_BUILTIN;
+const int pinThrottle = A0;
 const int pinMaxTime = A1;  
 const int pinMaxThrottle = A2;
 const int pinPushButton = D3;
@@ -42,13 +43,15 @@ public:
     int thr = throttle.failSaveValue();
     if (!start) {
       int mt = maxTime.Read();
-      if (abs(mt-maxSecs) > 5) { throttle.resetTimer(mt); maxSecs = mt; }
+      if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
       int thrM = maxThrottle.Read();
       if (abs(thrM-thrValue) > 5) thrValue = thrM;
-      if (button.read()) { timer.start(maxSecs); start = true; header = "[Timer]"; }
+      if (button.read()) { timer.start(maxSecs); start = true; led.setPulse(LedOk); header = "[Timer]"; }
     } else {
       thr = throttle.writeTx(thrValue);
     }
+    if (timer.elapsed()) led.setPulse(LedEndFlight);
+    led.update();
     if (++count >= NR_COUNTS) {  
       Serial.printf("%s t:%d, thr:%d, thrV:%d, sec:%d, \n", header, timer.seconds(), thr, thrValue, maxSecs);
       count = 0;
@@ -59,8 +62,9 @@ private:
   int maxSecs = maxFlight;
   Potmeter maxTime{pinMaxTime, 10, maxSecs};
   RcTimer timer{maxSecs};
-  Throttle throttle{pinESC, &timer, 0, maxSecs, warnEndFlight, nrWarns};
+  Throttle throttle{pinThrottle, &timer, 0, maxSecs, warnEndFlight, nrWarns};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
+  BlinkLed led{pinLed, LedWaitStart};
   bool start = false;
   int thrValue = -1, count = -1;
   char *header = "[Params]";

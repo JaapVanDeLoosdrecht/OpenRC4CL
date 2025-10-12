@@ -11,7 +11,7 @@ Software is released under the MIT licence.
 
 
 
-Note this project is Work In Progress and is develloped for ESP32 C6.
+Note this project is Work In Progress and is develloped for ESP32 C6, does not need external antenna.
 
 
 

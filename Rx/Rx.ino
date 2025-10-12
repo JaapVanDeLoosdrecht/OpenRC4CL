@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 11 October 2025
+Rx OpenRC4CL 12 October 2025
 
 MIT license
 
@@ -44,19 +44,13 @@ const int pinMaxThrottle = A2;
 const int NR_PACKETS = 50;                  // nr packets for telemetry and logging
 const unsigned long FAILSAFE_TIME = 500;    // ms
 
-const float ledOk = 0;  // status led in hz
-const float ledWait4Tx = 0.5;
-const float ledEndFlight = 0.25;
-const float ledFailsafe = 3;
-const float ledError = 10;
-
 class Rx : public RcPeer {  
 public:
   Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : RcPeer(mac_tx, channel, iface, lmk) { 
     throttle.failsafe(); chan1.failsafe(); 
   }
   void command(struct TxData &rc, unsigned long now) {
-    if (!connected) { connected = true; timer.start(); led.setHz(ledOk); }  // timer can be reset using first minimal throttle command
+    if (!connected) { connected = true; timer.start(); led.setPulse(LedOk); }  // timer can be reset using first minimal throttle command
     if (CheckSum(rc) == rc.checkSum) { 
       timeLastTx = now;
       int mThr = maxThrottle.Read();
@@ -80,7 +74,7 @@ public:
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
       Serial.printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ms:%d, rsi:%d, t:%d, lost:%d\n", 
                     rc.id, thrLast, rc.throttle, rc.chan1, avg_time, rsi, timer.secondsLeft(), totalLost);
-      led.setHz((packetsLost > 0) ? ledError : ledOk);
+      led.setPulse((packetsLost > 0) ? LedError : LedOk);
       count = packetsLost = 0;
       timeLast1st = now;
     }
@@ -90,7 +84,7 @@ public:
     unsigned long now = millis();
     command(rc, now);
     telemetry(rc, now);
-    if (timer.elapsed()) led.setHz(ledEndFlight);
+    if (timer.elapsed()) led.setPulse(LedEndFlight);
     led.update();
   }
   void checkFailsafe() { 
@@ -100,7 +94,7 @@ public:
       if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
         if (timer.elapsed()) throttle.failsafe(); else throttle.warnAndStop();
         chan1.failsafe();
-        led.setHz(ledFailsafe);
+        led.setPulse(LedFailsafe);
         Serial.printf("FAILSAFE!!!!\n");
         timeLastTx = now;                  // another test in FAILSAFE_TIME
       }
@@ -120,7 +114,7 @@ private:
   RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
   Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, warnEndFlight, nrWarns};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
-  BlinkLed led{pinLed, ledWait4Tx};
+  BlinkLed led{pinLed, LedWaitTxRx};
   bool connected = false;
   unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
   int thrLast = -1, thrMax = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;

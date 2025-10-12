@@ -1,5 +1,6 @@
 Todo:
-- blink buildin led for status CLTimer
+- softstart option fir CLtimer and combat handke
+  rampup time if starting from zero
 - use dipswitch of mini schakelaar for selecting timer of VBattLow in CLTimer
 - use 4 dipswitch te select channel nr in Rx and Tx
 - add max time functionality to Tx buzzer ??? (optional timer on Rx, frees an analog input on Rx)
@@ -18,4 +19,4 @@ Todo:
 - use the BluetoothSerial.h for logging with Bluetooth Terminal App (Google play)
 
 Changed:
-
+- blink buildin led for status CLTimer
