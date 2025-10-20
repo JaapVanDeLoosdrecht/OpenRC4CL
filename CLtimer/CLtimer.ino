@@ -1,5 +1,5 @@
 /* 
-CL Timer OpenRC4CL 12 October 2025
+CL Timer OpenRC4CL 20 October 2025
 
 MIT license
 
@@ -46,14 +46,14 @@ public:
       if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
       int thrM = maxThrottle.Read();
       if (abs(thrM-thrValue) > 5) thrValue = thrM;
-      if (button.read()) { timer.start(maxSecs); start = true; led.setPulse(LedOk); header = "[Timer]"; }
+      if (button.read()) { timer.start(maxSecs); start = true; led.setPulse(Led::Ok); header = "[Timer]"; }
     } else {
       thr = throttle.writeTx(thrValue);
     }
-    if (timer.elapsed()) led.setPulse(LedEndFlight);
+    if (timer.elapsed()) led.setPulse(Led::EndFlight);
     led.update();
     if (++count >= NR_COUNTS) {  
-      Serial.printf("%s t:%d, thr:%d, thrV:%d, sec:%d, \n", header, timer.seconds(), thr, thrValue, maxSecs);
+      Serial.printf("%s t:%d, thr:%d, thrV:%d, sec:%d, \n", header, (start) ? maxSecs-timer.seconds() : 0, thr, thrValue, maxSecs);
       count = 0;
     }
   }
@@ -61,10 +61,10 @@ private:
   PushButton button{pinPushButton};
   int maxSecs = maxFlight;
   Potmeter maxTime{pinMaxTime, 10, maxSecs};
-  RcTimer timer{maxSecs};
+  RcTimer timer{0};
   Throttle throttle{pinThrottle, &timer, 0, maxSecs, warnEndFlight, nrWarns};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
-  BlinkLed led{pinLed, LedWaitStart};
+  Led led{pinLed, Led::WaitStart};
   bool start = false;
   int thrValue = -1, count = -1;
   char *header = "[Params]";

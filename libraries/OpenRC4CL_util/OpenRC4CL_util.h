@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 12 October 2025
+Utils for OpenRC4CL 20 October 2025
 
 MIT license
 
@@ -29,7 +29,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-const char *OpenRC4CL_VERSION = "0.0.7";
+const char *OpenRC4CL_VERSION = "0.0.8";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
@@ -43,21 +43,16 @@ const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
 
-const int LedOk = 0;  // status blink led in ms pulse width
-const int LedWaitStart = 2000;
-const int LedWaitTxRx = 2000;
-const int LedEndFlight = 4000;
-const int LedFailsafe = 300;
-const int LedError = 100;
-
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   int sum = 0; for(int i = 0; i < nrSamples; i++) sum += analogReadMilliVolts(pin);
   return sum / nrSamples;
 }
 
-class BlinkLed {  // 0 ms is always on
+class Led {  // status blink led in ms pulse width, 0 ms is always on
 public:
-  BlinkLed(int pin, int ms) { pinMode(pin, OUTPUT); _pin = pin; setPulse(ms); }
+  static const int Ok = 0, WaitThrHold = 1000, WaitStart = 1000, WaitTxRx = 2000, 
+                   EndFlight = 4000, Failsafe = 300, Error = 100;
+  Led(int pin, int ms) { pinMode(pin, OUTPUT); _pin = pin; setPulse(ms); }
   void setPulse(int ms) { _ms = ms; } 
   void update() { digitalWrite(_pin, ((_ms == 0) || (millis() % _ms <= _ms / 2)) ? LOW : HIGH); }
 private:

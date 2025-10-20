@@ -1,22 +1,29 @@
 Todo:
-- softstart option fir CLtimer and combat handke
+- lipo monitoring and low bat, 100K + 10K for max 8S + 1N4001 (correct for 0.7V drop)
+  make setup with V divider using R for max 6S (or use 1 lipo only)
+  use Schottky diode for protection?? and compensate diode loss in calculation
+- add list with functionality in readme
+- softstart option for CLtimer and combat handle
   rampup time if starting from zero
-- use dipswitch of mini schakelaar for selecting timer of VBattLow in CLTimer
+- active buzzer on Tx
+- first use powerbank as powersupply for Tx, replace later with lipo
+- first Tx test on combat handle with killswitch and throttle dail on top of handle
+
+fase2:
 - use 4 dipswitch te select channel nr in Rx and Tx
 - add max time functionality to Tx buzzer ??? (optional timer on Rx, frees an analog input on Rx)
-- lipo monitoring and low bat, 
-  make settup with V divider using R for max 6S (or use 1 lipo only)
-  use Schottky diode for protection?? and compensate diode loss in calculation
-- softstart option for CLtimer ??
-- active buzzer on Tx
-- switch as killswitch and potmeter (instel pot) in arm box for normal handle
-- first tx throttle = 0 before start throttle > 0  OR kill push button on Rx
-- Add optional pin for throttle cut switch
-- using battery as powersupply
+- exponential throttle
 - soft mac address
 - paper display on TX
 - use IMU as crash sensor to kill engine
 - use the BluetoothSerial.h for logging with Bluetooth Terminal App (Google play)
+  or Bluefruit Connect published by Adafruit 
+  https://learn.adafruit.com/bluefruit-le-connect/uart-terminal
+  https://wiki.seeedstudio.com/xiao_esp32c6_bluetooth/
+
+(fase 3:
+- governor for throttle)
 
 Changed:
-- blink buildin led for status CLTimer
+- Tx wait for Throttle Hold until activate Tx
+- Refactor class Led
