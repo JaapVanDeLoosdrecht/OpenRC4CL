@@ -53,7 +53,7 @@ public:
     if (!connected) { connected = true; timer.start(); led.set(StatusOk); }  // timer can be reset using first minimal throttle command
     if (CheckSum(rc) == rc.checkSum) { 
       timeLastTx = now;
-      int mThr = maxThrottle.Read();
+      int mThr = maxThrottle.read();
       if (firstThrHold && rc.throttle > TxThrottleHoldPulse) { firstThrHold = false; }
       if (abs(thrMax-mThr) > 5) thrMax = mThr;
       thrLast = throttle.writeTx(min(rc.throttle, thrMax));
@@ -69,12 +69,12 @@ public:
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, 0, 123, rsi, timer.secondsLeft(), totalLost};
+      struct Telemetry tel = {0, rc.id, 0, 123, rsi, timer.secondsLeft(), throttle.isStop(), totalLost};
       tel.checkSum = CheckSum(tel);
       send_data((const uint8_t *)&tel, sizeof(tel));
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      Serial.printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ms:%d, rsi:%d, t:%d, lost:%d, mthr:%d\n", 
-                    rc.id, thrLast, rc.throttle, rc.chan1, avg_time, rsi, timer.secondsLeft(), totalLost, thrMax);
+      Serial.printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ch2:%d, ch3:%d, ms:%d, rsi:%d, t:%d, stop:%d, lost:%d, mthr:%d\n", 
+                    rc.id, thrLast, rc.throttle, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), throttle.isStop(), totalLost, thrMax);
       count = packetsLost = 0;
       timeLast1st = now;
     }

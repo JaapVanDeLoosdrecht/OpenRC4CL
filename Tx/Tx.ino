@@ -34,10 +34,13 @@ const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with ma
 
 const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
+const int pinCh3 = A1;
 const int pinThrottleHold = D3;
 const int pinLeftCh1 = D4;
 const int pinRightCh1 = D5;
-const int pinBeep = D7;         // D6 is HIGH on boot)
+const int pinLeftCh2 = D6;
+const int pinRightCh2 = D7;
+const int pinBeep = D8;         // D6 is HIGH on boot)
 
 class Tx : public RcPeer {
 public:
@@ -45,37 +48,42 @@ public:
   void wait4ThrHold() {
     Serial.printf("[Tx] wait for throttle hold\n");
     led.set(StatusWaitThrHold); beep.set(StatusWaitThrHold);  
-    while (hold.read() != Thr_Hold) { delay(100); statusUpdate(); }
+    while (hold.readPos() != Thr_Hold) { delay(100); statusUpdate(); }
     Serial.printf("[Tx] throttle hold activated\n");
     led.set(StatusWaitTxRx); beep.set(StatusOk);
   }
   void sendTx() {
-    int thr = throttle.Read();
-    if (hold.read() == Thr_Hold) thr = TxThrottleHoldPulse;
-    struct TxData rc{0, ++id, thr, chan1.readTx()}; 
+    int thr = throttle.read();
+    if (hold.readPos() == Thr_Hold) thr = TxThrottleHoldPulse;
+    struct TxData rc{0, ++id, thr, chan1.read(), chan2.read(), chan3.read()}; 
     rc.checkSum = CheckSum(rc);
-    if ((!this->send_data((uint8_t *)&rc, sizeof(rc))) && connected) {
-      led.set(StatusError); beep.set(StatusError);
-      Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
+    if (this->send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
+      lastId = id;
+    } else {
+      if (abs(id - lastId) > 5) {
+        led.set(StatusError); if (!beep_end_flight) beep.set(StatusError);
+        Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
+      }
     }
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {
     struct Telemetry tel = *(struct Telemetry *)data;
     connected = true;
     if (CheckSum(tel) != tel.checkSum) { 
-      led.set(StatusError); beep.set(StatusError);
+      led.set(StatusError); if (!beep_end_flight) beep.set(StatusError);
       Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
-    led.set((tel.time_left > 0) ? StatusOk : StatusEndFlight);
-    if (tel.time_left > 0) {
-      led.set(StatusOk); beep.set(StatusOk);
+    // if ((tel.time_left > 0) || (!tel.stop)) {
+    if (!tel.stop) {
+      led.set(StatusOk); beep.set(StatusOk); 
+      beep_end_flight = false;  // possible restart Rx:  
     } else {
       led.set(StatusEndFlight);
       if (!beep_end_flight) {beep.set(StatusEndFlight, 2); beep_end_flight = true; }
     }
-    Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, lost:%d\n", 
-                   tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.totalLost);
+    Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, stop:%d, lost:%d\n", 
+                   tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.stop, tel.totalLost);
   }
   void statusUpdate() { led.update(); beep.update(); }
 private:
@@ -83,10 +91,12 @@ private:
   Potmeter throttle{pinThrottle};
   Switch hold{pinThrottleHold};
   Switch chan1{pinLeftCh1, pinRightCh1};
+  Switch chan2{pinLeftCh2};
+  Potmeter chan3{pinCh3};
   Led led{pinLed, StatusWaitTxRx, true};  
-  Beep beep{pinBeep, StatusWaitTxRx};  //, 4000, false, 4, 4};
+  Beep beep{pinBeep, StatusWaitTxRx};
   bool connected = false, beep_end_flight = false;
-  int id = 0;
+  int id = 0, lastId = 0;
 };
 
 Tx tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);

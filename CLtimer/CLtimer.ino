@@ -42,9 +42,9 @@ public:
   void update() {
     int thr = throttle.failSaveValue();
     if (!start) {
-      int mt = maxTime.Read();
+      int mt = maxTime.read();
       if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
-      int thrM = maxThrottle.Read();
+      int thrM = maxThrottle.read();
       if (abs(thrM-thrValue) > 5) thrValue = thrM;
       if (button.read()) { timer.start(maxSecs); start = true; led.set(StatusOk); header = "[Timer]"; }
     } else {

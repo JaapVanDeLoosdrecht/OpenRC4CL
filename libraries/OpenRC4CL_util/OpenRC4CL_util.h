@@ -29,21 +29,21 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-const char *OpenRC4CL_VERSION = "0.0.9";
+const char *OpenRC4CL_VERSION = "0.0.10";
 
-struct TxData { int checkSum; int id; int throttle; int chan1; }; 
-inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
+struct TxData { int checkSum; int id; int throttle; int chan1; int chan2; int chan3; }; 
+inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
 
-struct Telemetry { int checkSum; int id; int vBatLow; int vBat; int rsi; int time_left; int totalLost; };
-inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.rsi ^ t.time_left ^t.totalLost; }
+struct Telemetry { int checkSum; int id; int vBatLow; int vBat; int rsi; int time_left; int stop; int totalLost; };
+inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost; }
 
-const int TxMinPulse = 1000;  // Tx pulses in us
+const int TxMinPulse = 1000;  // Tx pulses in us    todo class TxPulse::Min, etc
 const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
 
-// status blink pulse in us
+// status blink pulse in us   todo class Status
 const int StatusOk = 0, StatusWaitThrHold = 1000, StatusWaitStart = 1000, StatusWaitTxRx = 2000, 
           StatusEndFlight = 4000, StatusFailsafe = 500, StatusError = 200;
 
@@ -52,7 +52,7 @@ int avgAnalogMilliVolts(int pin, int nrSamples) {
   return sum / nrSamples;
 }
 
-class Blink {  // base class led/Beep, ms pulse width, 0 ms is always on
+class Blink {  // base class Led/Beep, ms pulse width, 0 ms is always on
 public:
   Blink(int pin, int ms, bool inv, int rep) { 
     pinMode(pin, OUTPUT); _pin = pin; 
@@ -106,8 +106,8 @@ public:         // NOTE: fallback is middle for both 3 pos and 2 pos if switch b
 	leftP = new PushButton(pinLeft);
     if (pinRight >= 0) { rightP = new PushButton(pinRight); tab = tab3; }
   }
-  Pos read() { int lt = leftP->read(); return (Pos)(rightP ? lt + 2 * rightP->read() : lt); }
-  int readTx() { return tab[this->read()]; }
+  Pos readPos() { int lt = leftP->read(); return (Pos)(rightP ? lt + 2 * rightP->read() : lt); }
+  int read() { return tab[this->readPos()]; }
 private:
   static constexpr int tab3[3] = {TxMidPulse, TxMinPulse, TxMaxPulse}; 
   static constexpr int tab2[2] = {TxMinPulse, TxMaxPulse};
@@ -118,8 +118,8 @@ private:
 class Potmeter {  // use 10K ohm and 3.3V (NOT 5V), ESP32-C6 analogReadMilliVolt is factory calibrated, analogRead returns raw ADC value.
 public:
   Potmeter(int pin, int min=TxMinPulse, int max=TxMaxPulse, int nrSamples=16) { _pin = pin; _min = min; _max = max; _nrS = nrSamples; }
-  int Read() { return map(ReadV(), 0, VRef, _min, _max); }
-  int ReadV() { return avgAnalogMilliVolts(_pin, _nrS); }
+  int read() { return map(readV(), 0, VRef, _min, _max); }
+  int readV() { return avgAnalogMilliVolts(_pin, _nrS); }
 private:
   const int VRef = 3350;  // note 50 mV above reference
   int _pin, _min, _max, _nrS;
@@ -186,7 +186,9 @@ public:
       if ((!timerSet) && (minThr > 0) && (v > minThr)) { timer->start(maxFlight); timerSet = true; }
       if (timerSet && (maxFlight > 0)) {    
         int t = timer->time();
-        if ((t >= warnTime) && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
+        // if ((t >= warnTime) && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
+		stop = (t >= warnTime) || stop;
+        if (stop && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
           v = reverse() ? (_max - (_max-v) / 2) : (_min + (v-_min) / 2); 
 	  }
 	}
@@ -206,6 +208,7 @@ public:
 	  if (stop) failsafe();
 	}
   } 
+  bool isStop() { return stop; }
 private:
   RcTimer *timer;
   bool timerSet = false, stop = false;
