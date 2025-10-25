@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 20 October 2025
+TX OpenRC4CL 25 October 2025
 
 MIT license
 
@@ -32,21 +32,22 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Rx
 #endif
 
-const int pinLed = LED_BUILTIN;
+const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinThrottleHold = D3;
 const int pinLeftCh1 = D4;
 const int pinRightCh1 = D5;
+const int pinBeep = D7;         // D6 is HIGH on boot)
 
 class Tx : public RcPeer {
 public:
   Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk): RcPeer(mac_rx, channel, iface, lmk) {}
   void wait4ThrHold() {
     Serial.printf("[Tx] wait for throttle hold\n");
-    led.setPulse(Led::WaitThrHold);
-    while (hold.read() != Thr_Hold) { delay(100); led.update(); }
+    led.set(StatusWaitThrHold); beep.set(StatusWaitThrHold);  
+    while (hold.read() != Thr_Hold) { delay(100); statusUpdate(); }
     Serial.printf("[Tx] throttle hold activated\n");
-    led.setPulse(Led::Error);
+    led.set(StatusWaitTxRx); beep.set(StatusOk);
   }
   void sendTx() {
     int thr = throttle.Read();
@@ -54,7 +55,7 @@ public:
     struct TxData rc{0, ++id, thr, chan1.readTx()}; 
     rc.checkSum = CheckSum(rc);
     if ((!this->send_data((uint8_t *)&rc, sizeof(rc))) && connected) {
-      led.setPulse(Led::Error);
+      led.set(StatusError); beep.set(StatusError);
       Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
     }
   }
@@ -62,27 +63,33 @@ public:
     struct Telemetry tel = *(struct Telemetry *)data;
     connected = true;
     if (CheckSum(tel) != tel.checkSum) { 
-      led.setPulse(Led::Error);
+      led.set(StatusError); beep.set(StatusError);
       Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
-    led.setPulse((tel.time_left > 0) ? Led::Ok : Led::EndFlight);
+    led.set((tel.time_left > 0) ? StatusOk : StatusEndFlight);
+    if (tel.time_left > 0) {
+      led.set(StatusOk); beep.set(StatusOk);
+    } else {
+      led.set(StatusEndFlight);
+      if (!beep_end_flight) {beep.set(StatusEndFlight, 2); beep_end_flight = true; }
+    }
     Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, lost:%d\n", 
                    tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.totalLost);
   }
-  void ledUpdate() { led.update(); }
+  void statusUpdate() { led.update(); beep.update(); }
 private:
   static const Switch::Pos Thr_Hold = Switch::middle;
   Potmeter throttle{pinThrottle};
   Switch hold{pinThrottleHold};
   Switch chan1{pinLeftCh1, pinRightCh1};
-  Led led{pinLed, Led::WaitTxRx};
-  bool connected = false;
+  Led led{pinLed, StatusWaitTxRx, true};  
+  Beep beep{pinBeep, StatusWaitTxRx};  //, 4000, false, 4, 4};
+  bool connected = false, beep_end_flight = false;
   int id = 0;
 };
 
 Tx tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
-
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
@@ -93,11 +100,12 @@ void setup() {
   }
   Serial.printf("OpenRC4CL %s, Tx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
                  OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+  pinMode(pinBeep, OUTPUT);  // why is this needed??
   tx.wait4ThrHold();
 }
 
 void loop() {
   tx.sendTx();
-  tx.ledUpdate();
+  tx.statusUpdate();
   delay(20);
 }

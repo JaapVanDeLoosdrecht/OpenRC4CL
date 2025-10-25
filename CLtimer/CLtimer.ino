@@ -1,5 +1,5 @@
 /* 
-CL Timer OpenRC4CL 20 October 2025
+CL Timer OpenRC4CL 25 October 2025
 
 MIT license
 
@@ -25,11 +25,11 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "OpenRC4CL_util.h"
 
-const int maxFlight = 7*60;    // seconds
-const int warnEndFlight = 6;   // seconds before max
-const int nrWarns = 2;
+const int maxFlight = 7*60;      // seconds
+const int warnEndFlight = 6;     // seconds before max
+const int nrWarns = 2;           // numver of warnings
 
-const int pinLed = LED_BUILTIN;
+const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinMaxTime = A1;  
 const int pinMaxThrottle = A2;
@@ -46,11 +46,11 @@ public:
       if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
       int thrM = maxThrottle.Read();
       if (abs(thrM-thrValue) > 5) thrValue = thrM;
-      if (button.read()) { timer.start(maxSecs); start = true; led.setPulse(Led::Ok); header = "[Timer]"; }
+      if (button.read()) { timer.start(maxSecs); start = true; led.set(StatusOk); header = "[Timer]"; }
     } else {
       thr = throttle.writeTx(thrValue);
     }
-    if (timer.elapsed()) led.setPulse(Led::EndFlight);
+    if (timer.elapsed()) led.set(StatusEndFlight);
     led.update();
     if (++count >= NR_COUNTS) {  
       Serial.printf("%s t:%d, thr:%d, thrV:%d, sec:%d, \n", header, (start) ? maxSecs-timer.seconds() : 0, thr, thrValue, maxSecs);
@@ -64,7 +64,7 @@ private:
   RcTimer timer{0};
   Throttle throttle{pinThrottle, &timer, 0, maxSecs, warnEndFlight, nrWarns};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
-  Led led{pinLed, Led::WaitStart};
+  Led led{pinLed, StatusWaitStart, true};
   bool start = false;
   int thrValue = -1, count = -1;
   char *header = "[Params]";

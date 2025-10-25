@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 20 October 2025
+Utils for OpenRC4CL 25 October 2025
 
 MIT license
 
@@ -29,7 +29,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-const char *OpenRC4CL_VERSION = "0.0.8";
+const char *OpenRC4CL_VERSION = "0.0.9";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1; } 
@@ -43,21 +43,53 @@ const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
 
+// status blink pulse in us
+const int StatusOk = 0, StatusWaitThrHold = 1000, StatusWaitStart = 1000, StatusWaitTxRx = 2000, 
+          StatusEndFlight = 4000, StatusFailsafe = 500, StatusError = 200;
+
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   int sum = 0; for(int i = 0; i < nrSamples; i++) sum += analogReadMilliVolts(pin);
   return sum / nrSamples;
 }
 
-class Led {  // status blink led in ms pulse width, 0 ms is always on
+class Blink {  // base class led/Beep, ms pulse width, 0 ms is always on
 public:
-  static const int Ok = 0, WaitThrHold = 1000, WaitStart = 1000, WaitTxRx = 2000, 
-                   EndFlight = 4000, Failsafe = 300, Error = 100;
-  Led(int pin, int ms) { pinMode(pin, OUTPUT); _pin = pin; setPulse(ms); }
-  void setPulse(int ms) { _ms = ms; } 
-  void update() { digitalWrite(_pin, ((_ms == 0) || (millis() % _ms <= _ms / 2)) ? LOW : HIGH); }
+  Blink(int pin, int ms, bool inv, int rep) { 
+    pinMode(pin, OUTPUT); _pin = pin; 
+	if (inv) { off = HIGH; on = LOW; } else { off = LOW; on = HIGH; }  // Note LED_BUILTIN is reversed on C6
+	set(ms, rep); 
+  }
+  void set(int ms, int rep=0) { _ms = ms; _rep = rep; count = 0; active = false; } 
+  void update() {
+	//Serial.printf("[Blink] pin:%d, ms:%d, active:%d, rep:%d, count:%d, on:%d, off:%d\n", _pin, _ms, active, _rep, count, on, off);
+    if ((_rep == 0) || (count <= _rep)) {
+      if (_ms != 0) {
+        bool s = (millis() % _ms < _ms / 2);
+        if ((s != active) && s) count++;
+        active = ((count <= _rep) || (_rep == 0)) ? s : false;
+      } else {
+        active = false;
+      }
+    } else {
+      active = false;
+    }
+    digitalWrite(_pin, active ? on : off);  
+  }
 private:
-  int _pin, _ms;
+  int _pin, _ms, _rep, count;
+  bool active, on, off;
 };
+
+class Led : public Blink {  // status blink led in ms pulse width, 0 ms is always on
+public:
+  Led(int pin, int ms, int inv=false, int rep=0): Blink(pin, ms, inv, rep) {}
+};
+
+class Beep : public Blink {  // status blink led in ms pulse width, 0 ms is always on
+public:
+  Beep(int pin, int ms, int inv=false, int rep=1): Blink(pin, ms, inv, rep) {}
+};
+
 
 class PushButton {  // one end to GND, other end to digital input, no external pullup Rs
 public:             // note: the two pins on each side, close to each other, are connected 

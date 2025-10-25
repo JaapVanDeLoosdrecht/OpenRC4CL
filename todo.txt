@@ -1,7 +1,18 @@
 Todo:
+- Change Led to class Blink for both leds and beepers
+  add (pin, pulse, dutyF)  dutyF for leds = 2
+  addLed(pin, pulse)
+  addBeeper(pin, pulse, dutyF)
+  No list possible
+  In constructor specify max Blinks
+  One update for all Blinks
 - lipo monitoring and low bat, 100K + 10K for max 8S + 1N4001 (correct for 0.7V drop)
   make setup with V divider using R for max 6S (or use 1 lipo only)
   use Schottky diode for protection?? and compensate diode loss in calculation
+- Beepers
+  CLTimer: warning signal N secs before starting engine
+  Rx: warning signal when ThrHold switches off
+  Tx: warning when ThrHold is off when powering up
 - add list with functionality in readme
 - softstart option for CLtimer and combat handle
   rampup time if starting from zero
@@ -25,5 +36,6 @@ fase2:
 - governor for throttle)
 
 Changed:
-- Tx wait for Throttle Hold until activate Tx
-- Refactor class Led
+- Base class Blink for Led and Beep added
+- Beeper added
+
