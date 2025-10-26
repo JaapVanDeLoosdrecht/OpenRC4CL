@@ -1,7 +1,8 @@
 Todo:
-- lipo monitoring and low bat, 100K + 10K for max 8S + 1N4001 (correct for 0.7V drop)
+- test if drop is constant [1..8]S
+  lipo monitoring and low bat, 100K + 10K for max 8S + 1N4001 (correct for 0.7V drop)
   make setup with V divider using R for max 6S (or use 1 lipo only)
-  use Schottky diode for protection?? and compensate diode loss in calculation
+  NOTE test first with 3.3V
 - use the BluetoothSerial.h for logging with Bluetooth Terminal App (Google play)
   or Bluefruit Connect published by Adafruit 
   https://learn.adafruit.com/bluefruit-le-connect/uart-terminal
@@ -15,19 +16,14 @@ Todo:
 - first Tx test on combat handle with killswitch and throttle dail on top of handle
 
 fase2:
-- use 4 dipswitch te select channel nr in Rx and Tx
+- use 2 dipswitches to select 4 different wifi channel nrs in Rx and Tx
 - exponential throttle
 - soft mac address
-- paper display on TX
-- use IMU as crash sensor to kill engine
+- (paper display on TX)
+- use BT to send setting commands
 
 (fase 3:
+- use IMU as crash sensor to kill engine
 - governor for throttle)
 
 Changed:
-- Base class Blink for Led and Beep added
-- Beeper added
-- Tx: warning when ThrHold is off when powering up
-- if Rx restarts Tx should reset beep_end_flight
-- added chan2 and chan3
-

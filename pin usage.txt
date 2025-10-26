@@ -1,0 +1,87 @@
+Pin usage
+
+Rx:
+- LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
+- A0: throttle
+- A1: chan1
+- A2: max throttle
+- D3 (=A3?, does this exists? GPIO21? =(D3))  use for max time?
+- D4
+- D5
+- D6
+- D7
+- D8
+- D9: select wifi 0
+- D10: select wifi 1
+- A4: chan2
+- A5: chan3
+- A6: lipo voltage monitor or max time?
+
+Tx:
+- LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
+- A0: throttle
+- A1: low VBatt warning voltage (1 cell lipo)
+- A2: max throttle
+- D3: throttle hold 
+- D4: leftCh1
+- D5: rightCh1
+- D6: leftCh2
+- D7: rightCh2
+- D8: beep
+- D9: select wifi 0
+- D10: select wifi 1
+- A4: 
+- A5: chan3
+- A6: Tx lipo voltage monitor (1 cell lipo)
+
+
+-----------------------------------------------------------------------
+Connection Tx <---> Hold/Throttle
+
+H = digital input with pullup R
+T = analog input
+
+4 pin audio   ---|---|---|--->
+               -   H   T   +
+			   
+NOTE: Thr Hold switch MUST be off when connecting!!
+
+Phases in connecting:
+ Tx || - | H | T | + ||
+	||-------------------------
+HT1 ||   |   |   | - || H  T  +
+HT2 ||	 |   | - | H || T  +
+HT3 ||   | - | H | T || +
+HT4 || - | H | T | - ||
+
+HT1: Tx T floating=0, Tx H floating=+ -> Hold on
+
+HT2: Tx T floating=0 or +, Tx H floating=+ -> Hold on
+Tx             T          +
+HT             -          H                T              +
+
+               |          |                |              |
+               |          \                |              |
+               |           \         ______|_____         |
+               |__________|_________|            |________|
+			                        |____________|
+									
+HT3: Tx T floating=0 or +, Tx H=+ -> Hold on
+Tx             H          T                +
+HT             -          H                T              +
+
+               |          |                |              |
+               |          \                |              |
+               |           \         ______|_____         |
+               |__________|_________|            |________|
+			                        |____________|
+								
+HT4: everything connected right
+
+-----------------------------------------------------------------------
+
+Voltage measurement
+
+  0V           +1S                                 +1-8S
+  |___ R 10K ___|___ R 100K ___ (cathode) 1N5819  __| 
+  

@@ -70,14 +70,15 @@ private:
   char *header = "[Params]";
 };
 
-CLtimer timer;
+CLtimer *timer = 0;  // initialisation must in setup
 
 void setup() {
   Serial.begin(115200);
   Serial.printf("Start CLtimer, OpenRC4CL %s\n", OpenRC4CL_VERSION);
+  timer = new CLtimer();
 }
 
 void loop() {
-  timer.update();
+  timer->update();
   delay(100);
 }

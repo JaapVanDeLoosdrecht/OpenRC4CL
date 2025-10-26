@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 25 October 2025
+Utils for OpenRC4CL 26 October 2025
 
 MIT license
 
@@ -21,6 +21,8 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+// NOTE: this is only tested on XIAO ESP32-C6
+
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
@@ -28,8 +30,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <MacAddress.h>
 #include <WiFi.h>
 #include <ESP32Servo.h>
+#include "ESP32C6_back_side_pins.h"
 
-const char *OpenRC4CL_VERSION = "0.0.10";
+const char *OpenRC4CL_VERSION = "0.0.11";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; int chan2; int chan3; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
@@ -186,7 +189,6 @@ public:
       if ((!timerSet) && (minThr > 0) && (v > minThr)) { timer->start(maxFlight); timerSet = true; }
       if (timerSet && (maxFlight > 0)) {    
         int t = timer->time();
-        // if ((t >= warnTime) && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
 		stop = (t >= warnTime) || stop;
         if (stop && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
           v = reverse() ? (_max - (_max-v) / 2) : (_min + (v-_min) / 2); 

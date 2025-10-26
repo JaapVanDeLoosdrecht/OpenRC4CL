@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 25 October 2025
+Rx OpenRC4CL 26 October 2025
 
 MIT license
 
@@ -21,28 +21,51 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+// NOTE: this is only tested on XIAO ESP32-C6
 // RX com7 white usb
 
 #include <MacAddress.h>
 #include <WiFi.h>
 #include "OpenRC4CL_util.h"
-#include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_can and mac address
+#include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan and mac address
 #ifndef MAC_CHAN
 #define WIFI_CHANNEL 6
 const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Tx
 #endif
 
-const int maxFlight = 9;    // seconds
-const int warnEndFlight = 3;   // seconds before max
-const int nrWarns = 2;
-const int minThrottle = TxMidPulse;  // min trhottle value to start timer, 0 = no restart timer 
-
+// user settings
+const int maxFlight = 9;                    // seconds
+const int warnEndFlight = 3;                // seconds before max
+const int nrWarns = 2;                      // number if throttle warnings befor stopping engine
+const int minThrottle = TxMidPulse;         // min trhottle value to start timer, 0 = no restart timer 
+const int maxV1cell = 4200;                 // max voltage 1 lipo cell, LiHV = 4350
+const int lipoDivR1 = 10000;                // R1 lipo voltage divider
+const int lipoDivR2 = 100000;               // R2 lipo voltage divider
+// hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
-const int pinChan1 = A1;                    // todo enable again. find another anologe pin or use digital pin
+const int pinChan1 = A1;                    
 const int pinMaxThrottle = A2;
+// system
 const int NR_PACKETS = 50;                  // nr packets for telemetry and logging
 const unsigned long FAILSAFE_TIME = 500;    // ms
+
+class LipoV {
+public:
+  LipoV(int pin, int r1 = lipoDivR1, int r2 = lipoDivR2, int maxV = maxV1cell) {  
+    _pin = pin; _r1 = r1; _r2 = r2; _div = ((r1+r2)/r1); _maxV = maxV; 
+    int mV = readV();
+    for (_nrCells = MaxCells; _nrCells == 1; _nrCells--) {
+      if (mV > (_maxV * c / _div) * PercentFull / 100) break;
+    }
+  }
+  int read() { return readV() / _nrCells; }  // avgV cell in mV
+  int readV() { return refV(avgAnalogMilliVolts(_pin, 16) * _div); }  // V all cells in mV
+  int nrCells() { return _nrCells; }
+private:
+  const int MaxCells = 8, PrecentFull = 90; 
+  int _pin, _r1, _r2, _div, _maxV, _nrCells;
+};
 
 class Rx : public RcPeer {  
 public:
@@ -58,7 +81,10 @@ public:
       if (abs(thrMax-mThr) > 5) thrMax = mThr;
       thrLast = throttle.writeTx(min(rc.throttle, thrMax));
       chan1.writeTx(rc.chan1);
-      if (rc.id < 100) { packetsLost = 0; lastId = -1; count = -1; }  // new Tx   
+      if (rc.id < 100) {  // new Tx 
+        timer.start(); led.set(StatusOk); 
+        packetsLost = 0; lastId = -1; count = -1; 
+      }    
       if (lastId > 0) packetsLost += rc.id - lastId - 1;
       lastId = rc.id;
     } else {
@@ -89,7 +115,7 @@ public:
   void statusUpdate() { led.update(); }
   void checkFailsafe() { 
     if (connected) {
-      unsigned long last = timeLastTx;     // copy of last before geting now
+      unsigned long last = timeLastTx;     // copy of last before geting now, this function can be interupted
       unsigned long now = millis();
       if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
         if (timer.elapsed()) throttle.failsafe(); else throttle.warnAndStop();
@@ -119,13 +145,14 @@ private:
   int thrLast = -1, thrMax = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
 };
 
-Rx rx(macTx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
+Rx *rx = 0; // initialisation must in setup 
 
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
+  rx = new Rx(macTx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
   while (!WiFi.STA.started()) delay(100);
-  if ((!ESP_NOW.begin()) || (!rx.add_self())) {
+  if ((!ESP_NOW.begin()) || (!rx->add_self())) {
     Serial.printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
@@ -134,7 +161,7 @@ void setup() {
 }
 
 void loop() {
-  rx.checkFailsafe();
-  rx.checkVBatt();
-  rx.statusUpdate();
+  rx->checkFailsafe();
+  rx->checkVBatt();
+  rx->statusUpdate();
 }

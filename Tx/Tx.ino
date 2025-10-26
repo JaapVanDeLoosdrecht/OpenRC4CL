@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 25 October 2025
+TX OpenRC4CL 26 October 2025
 
 MIT license
 
@@ -21,12 +21,13 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+// NOTE: this is only tested on XIAO ESP32-C6
 // Tx com5 black usb 
 
 #include <MacAddress.h>
 #include <WiFi.h>
 #include "OpenRC4CL_util.h"  
-#include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_can and mac address
+#include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan and mac address
 #ifndef MAC_CHAN
 #define WIFI_CHANNEL 6
 const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Rx
@@ -34,13 +35,13 @@ const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with ma
 
 const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
-const int pinCh3 = A1;
 const int pinThrottleHold = D3;
 const int pinLeftCh1 = D4;
 const int pinRightCh1 = D5;
 const int pinLeftCh2 = D6;
 const int pinRightCh2 = D7;
-const int pinBeep = D8;         // D6 is HIGH on boot)
+const int pinCh3 = A5;    // todo, is tested with A1
+const int pinBeep = D8;         
 
 class Tx : public RcPeer {
 public:
@@ -74,7 +75,6 @@ public:
       Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
-    // if ((tel.time_left > 0) || (!tel.stop)) {
     if (!tel.stop) {
       led.set(StatusOk); beep.set(StatusOk); 
       beep_end_flight = false;  // possible restart Rx:  
@@ -99,23 +99,24 @@ private:
   int id = 0, lastId = 0;
 };
 
-Tx tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
+Tx *tx = 0;  // initialisation must in setup due to changing pinModes to OUTPUT
+
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
   while (!WiFi.STA.started()) delay(100);
-  if ((!ESP_NOW.begin()) || (!tx.add_self())) {
+  tx = new Tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
+  if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     Serial.printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
   Serial.printf("OpenRC4CL %s, Tx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
                  OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
-  pinMode(pinBeep, OUTPUT);  // why is this needed??
-  tx.wait4ThrHold();
+  tx->wait4ThrHold();
 }
 
 void loop() {
-  tx.sendTx();
-  tx.statusUpdate();
-  delay(20);
+  tx->sendTx();
+  tx->statusUpdate();
+  delay(15);  // some headroom to have at least 50Hz
 }
