@@ -16,10 +16,10 @@ Usage cases:
 
 - Combat/trainer CL handle with throttle hold switch and small potmeter for setting throttle value between flights.
 - Carrier/scale CL handle with continuous throttle 'trigger' control, throttle hold switch and 
-  3 (two 3 states and one continuous) servo functions like dropping hook.
+  3 (two 3 states and one continuous) servo functions like for dropping hook, etc.
 - etc.
 
-Default servo pulse width [1000..2000] us @ 50 Hz, in software configurable
+Default servo pulse width [1000..2000] us @ 50 Hz, in software configurable.
 
 Tx channels:
 
@@ -128,5 +128,5 @@ Phases (N and W are parameters configurable in software):  [WIP]
   (last W-N seconds full throttle level)
 - stop engine 
 
-Logging status by Bluetooth to smartphone.
+Logging status by bluetooth or usb to smartphone or laptop.
 
