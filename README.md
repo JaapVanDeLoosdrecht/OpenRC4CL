@@ -87,7 +87,9 @@ Status codes for led and beeper (blink pulse in ms):
 - Failsafe = 500
 - Error = 200
 
-## CLTimer is 'spinoff' project from components used for Tx and Rx projects in the OpenRC4CL repro.
+## CLTimer 
+
+CLTimer is 'spinoff' project from components used for Tx and Rx projects in the OpenRC4CL repro.
 
 Usage case: typical classic control line timer without remote RC functionality.
 
