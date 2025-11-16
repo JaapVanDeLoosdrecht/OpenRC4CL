@@ -78,7 +78,7 @@ Rx ESP32C6 outputs:
 - status led (digital output)
 - beeper (digital output)
 
-status codes for led and beeper (blink pulse in ms):
+Status codes for led and beeper (blink pulse in ms):
 
 - Ok = 0 (off)
 - WaitThrHold = 1000
@@ -86,4 +86,45 @@ status codes for led and beeper (blink pulse in ms):
 - EndFlight = 4000
 - Failsafe = 500
 - Error = 200
+
+## CLTimer is 'spinoff' project from components used for Tx and Rx projects in the OpenRC4CL repro.
+
+Usage case: typical classic control line timer without remote RC functionality.
+
+Inputs:
+
+- parameters (analog input with potmeters):
+	- delay start [0..60] secs
+	- throttle level [0..100]%
+	- runtime [0..8*60] secs
+	- min VBatt [3000..8*4350] mV, max 8S LiHV
+- VBatt (max 8S) (analog input)
+- start/stop button (digital input)
+
+Outputs:
+
+- servo signal for ESC (analog output)
+- status led (digital output)
+- beeper (digital output)
+
+Note if VBatt is not connected, only timer function avialable.
+
+Phases (N and W are parameters configurable in software):  [WIP]
+
+- connect battery and boot
+- read parameters, log every 0.5 second parameters to serial monitor and BT 
+- press button for 2 seconds to intiate 'ready_to_start', confirm with beep
+- during ready_to_start
+  - beep every 10 secs, last 10 sec every sec
+  - abort ready_to_start if start button is pressed for 2nd time
+    go to phase read parameters
+- start engine and throttle timer, log every 0.5 second status to serial monitor and BT
+- abort running if start button is (short) pressed for 2nd time
+  go to phase read parameters
+- W seconds before throttle timer expires OR if VBatt below min VBatt:
+  issue for N (N < W) seconds throttle warnings (0.5 s half, 0.5 s normal throttle level) 
+  (last W-N seconds full throttle level)
+- stop engine 
+
+Logging status by Bluetooth to smartphone.
 
