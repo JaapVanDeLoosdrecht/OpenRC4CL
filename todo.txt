@@ -1,4 +1,6 @@
 Todo:
+- remove timer from Rx???
+- implement new pin allocations
 - test if drop is constant [1..8]S
   lipo monitoring and low bat, 100K + 10K for max 8S + 1N4001 (correct for 0.7V drop)
   make setup with V divider using R for max 6S (or use 1 lipo only)
@@ -7,6 +9,8 @@ Todo:
   or Bluefruit Connect published by Adafruit 
   https://learn.adafruit.com/bluefruit-le-connect/uart-terminal
   https://wiki.seeedstudio.com/xiao_esp32c6_bluetooth/
+- class DipSwitch for 4 pins
+- mapping Tx to Rx channels (due to limitted nr analog outputs on Rx)
 - Beeper
   CLTimer: warning signal N secs before starting engine
 - add list with functionality in readme
@@ -14,6 +18,9 @@ Todo:
   rampup time if starting from zero
 - first use powerbank as powersupply for Tx, replace later with lipo
 - first Tx test on combat handle with killswitch and throttle dail on top of handle
+
+protype board:
+- mark servo and VBatt headers with heat-shrink tubing
 
 fase2:
 - use 2 dipswitches to select 4 different wifi channel nrs in Rx and Tx

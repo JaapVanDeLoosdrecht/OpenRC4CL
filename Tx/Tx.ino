@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 26 October 2025
+TX OpenRC4CL 16 November 2025
 
 MIT license
 
@@ -21,16 +21,17 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// NOTE: this is only tested on XIAO ESP32-C6
+// NOTE: this is only tested on XIAO ESP32-C6, use partion schema NO ATO (2MB APP/2MB SPIFFS)
 // Tx com5 black usb 
 
 #include <MacAddress.h>
 #include <WiFi.h>
 #include "OpenRC4CL_util.h"  
-#include "mac_chan.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan and mac address
-#ifndef MAC_CHAN
+#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
+#ifndef SECRET
 #define WIFI_CHANNEL 6
 const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Rx
+char *BLE_device_Tx = "Tx-OpenRC4CL";                          // modify with your name
 #endif
 
 const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
@@ -41,16 +42,18 @@ const int pinRightCh1 = D5;
 const int pinLeftCh2 = D6;
 const int pinRightCh2 = D7;
 const int pinCh3 = A5;    // todo, is tested with A1
-const int pinBeep = D8;         
+const int pinBeep = D8;   
+
+Logger *logger = 0; 
 
 class Tx : public RcPeer {
 public:
   Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk): RcPeer(mac_rx, channel, iface, lmk) {}
   void wait4ThrHold() {
-    Serial.printf("[Tx] wait for throttle hold\n");
+    logger->printf("[Tx] wait for throttle hold\n");
     led.set(StatusWaitThrHold); beep.set(StatusWaitThrHold);  
     while (hold.readPos() != Thr_Hold) { delay(100); statusUpdate(); }
-    Serial.printf("[Tx] throttle hold activated\n");
+    logger->printf("[Tx] throttle hold activated\n");
     led.set(StatusWaitTxRx); beep.set(StatusOk);
   }
   void sendTx() {
@@ -63,7 +66,7 @@ public:
     } else {
       if (abs(id - lastId) > 5) {
         led.set(StatusError); if (!beep_end_flight) beep.set(StatusError);
-        Serial.printf("[Tx] FAILED TO SEND id: %d\n", id);
+        logger->printf("[Tx] FAILED TO SEND id: %d\n", id);
       }
     }
   }
@@ -72,7 +75,7 @@ public:
     connected = true;
     if (CheckSum(tel) != tel.checkSum) { 
       led.set(StatusError); if (!beep_end_flight) beep.set(StatusError);
-      Serial.printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
+      logger->printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
       return;
     }
     if (!tel.stop) {
@@ -82,8 +85,8 @@ public:
       led.set(StatusEndFlight);
       if (!beep_end_flight) {beep.set(StatusEndFlight, 2); beep_end_flight = true; }
     }
-    Serial.printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, stop:%d, lost:%d\n", 
-                   tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.stop, tel.totalLost);
+    logger->printf("[Tx tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, stop:%d, lost:%d\n", 
+                    tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.stop, tel.totalLost);
   }
   void statusUpdate() { led.update(); beep.update(); }
 private:
@@ -103,15 +106,16 @@ Tx *tx = 0;  // initialisation must in setup due to changing pinModes to OUTPUT
 
 void setup() {
   Serial.begin(115200);
+  logger = new Logger(BLE_device_Tx);
   WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
   while (!WiFi.STA.started()) delay(100);
   tx = new Tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
-    Serial.printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
+    logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  Serial.printf("OpenRC4CL %s, Tx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
-                 OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+  logger->printf("OpenRC4CL %s, Tx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
+                  OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
   tx->wait4ThrHold();
 }
 

@@ -1,5 +1,5 @@
 /* 
-CL Timer OpenRC4CL 25 October 2025
+CL Timer OpenRC4CL 16 November 2025
 
 MIT license
 
@@ -21,9 +21,15 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+// NOTE: this is only tested on XIAO ESP32-C6, use partion schema NO ATO (2MB APP/2MB SPIFFS)
 // CLtimer com7 white usb
 
 #include "OpenRC4CL_util.h"
+#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify BLE_device
+#ifndef SECRET
+char *BLE_device_Timer = "Timer-OpenRC4CL";  // modify with your name
+#endif
+
 
 const int maxFlight = 7*60;      // seconds
 const int warnEndFlight = 6;     // seconds before max
@@ -34,6 +40,8 @@ const int pinThrottle = A0;
 const int pinMaxTime = A1;  
 const int pinMaxThrottle = A2;
 const int pinPushButton = D3;
+
+Logger *logger = 0; 
 
 class CLtimer {  
 public:
@@ -53,7 +61,7 @@ public:
     if (timer.elapsed()) led.set(StatusEndFlight);
     led.update();
     if (++count >= NR_COUNTS) {  
-      Serial.printf("%s t:%d, thr:%d, thrV:%d, sec:%d, \n", header, (start) ? maxSecs-timer.seconds() : 0, thr, thrValue, maxSecs);
+      logger->printf("%s t:%d, thr:%d, thrV:%d, sec:%d\n", header, (start) ? maxSecs-timer.seconds() : 0, thr, thrValue, maxSecs);
       count = 0;
     }
   }
@@ -74,7 +82,8 @@ CLtimer *timer = 0;  // initialisation must in setup
 
 void setup() {
   Serial.begin(115200);
-  Serial.printf("Start CLtimer, OpenRC4CL %s\n", OpenRC4CL_VERSION);
+  logger = new Logger(BLE_device_Timer);
+  logger->printf("Start CLtimer, OpenRC4CL %s\n", OpenRC4CL_VERSION);
   timer = new CLtimer();
 }
 

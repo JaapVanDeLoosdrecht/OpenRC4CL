@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 26 October 2025
+Utils for OpenRC4CL 16 November 2025
 
 MIT license
 
@@ -31,8 +31,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <ESP32Servo.h>
 #include "ESP32C6_back_side_pins.h"
+#include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.11";
+const char *OpenRC4CL_VERSION = "0.0.12";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; int chan2; int chan3; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
@@ -46,7 +47,7 @@ const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
 
-// status blink pulse in us   todo class Status
+// status blink pulse in us   todo class Status, change WaitTxRx to WaitConnection
 const int StatusOk = 0, StatusWaitThrHold = 1000, StatusWaitStart = 1000, StatusWaitTxRx = 2000, 
           StatusEndFlight = 4000, StatusFailsafe = 500, StatusError = 200;
 
@@ -54,6 +55,21 @@ int avgAnalogMilliVolts(int pin, int nrSamples) {
   int sum = 0; for(int i = 0; i < nrSamples; i++) sum += analogReadMilliVolts(pin);
   return sum / nrSamples;
 }
+
+class Logger {  // log msgs to both Serial and SerialBLE, use Serial Bluetooth Terminal App (Google play)
+public:
+  Logger(char *BLE_device, int max_buf = 80) { SerialBLE.begin(BLE_device); _max_buf = max_buf; _buf = new char[_max_buf]; }
+  void printf(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vsnprintf(_buf, _max_buf, format, args);
+    va_end(args);
+    Serial.print(_buf); SerialBLE.print(_buf); SerialBLE.flush();
+  }
+private:
+  char *_buf = 0; int _max_buf;
+  BLESerial<> SerialBLE;
+};
 
 class Blink {  // base class Led/Beep, ms pulse width, 0 ms is always on
 public:
