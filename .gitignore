@@ -4,3 +4,4 @@ wifi for CL throttle idea.docx
 /libraries/NimBLE-Arduino
 /libraries/NuS-NimBLE-Serial
 /libraries/Serial_BLE
+libraries/OpenRC4CL_util/secret.h
