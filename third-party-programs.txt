@@ -15,3 +15,6 @@ terms are listed below.
    License: GLPL 2.1
    https://docs.arduino.cc/libraries/esp32servo/
 
+2. Serial_BLE
+   MIT
+   https://github.com/senseshift/arduino-ble-serial
