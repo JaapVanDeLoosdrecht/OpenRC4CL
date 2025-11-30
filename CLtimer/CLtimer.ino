@@ -24,6 +24,8 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
 // CLtimer com7 white usb
 
+// NOTE this is WIP and lagging behind in maintance with Tx/Rx at the moment <----------------!!!!
+
 #include "OpenRC4CL_util.h"
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify BLE_device
 #ifndef SECRET

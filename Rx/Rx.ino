@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 16 November 2025
+Rx OpenRC4CL 30 November 2025
 
 MIT license
 
@@ -35,15 +35,19 @@ char *BLE_device_Rx = "Rx-OpenRC4CL";                           // modify with y
 #endif
 
 // user settings
-const int maxFlight = 9;                    // seconds
-const int warnEndFlight = 3;                // seconds before max
-const int nrWarns = 2;                      // number if throttle warnings befor stopping engine
+const int maxFlight = 8*60;                 // seconds, if maxTime is not in used
+const int nrWarns = 2;                      // number if throttle warnings before stopping engine
+const int stopEngine = 1;                   // stop engine after last warning
 const int minThrottle = TxMidPulse;         // min trhottle value to start timer, 0 = no restart timer 
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
-const int pinChan1 = A1;                    
-const int pinMaxThrottle = A2;
+const int pinChan1 = PIN_NOT_USED;          // A1;                    
+const int pinChan2 = PIN_NOT_USED;          // A2;                    
+const int pinChan3 = PIN_NOT_USED;          // A4;  
+const int pinMaxTime = A1;                  // A5;  
+const int pinVBattLow = PIN_NOT_USED;       // A5;  
+const int pinVBatt = A2;                    // A6;  
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
 const int lipoDivR2 = 100000;               // R2 lipo voltage divider
 // system
@@ -51,30 +55,24 @@ const int NR_PACKETS = 50;                  // nr packets for telemetry and logg
 const unsigned long FAILSAFE_TIME = 500;    // ms
 Logger *logger = 0; 
 
-class VoltageDiv {
-public:
-  VoltageDiv(int pin, int r1, int r2) {  _pin = pin; _r1 = r1; _r2 = r2; _div = ((r1+r2)/r1); }
-  int read() { return avgAnalogMilliVolts(_pin, 16) * _div; }  // V in mV
-private:
-  int _pin, _r1, _r2, _div;
-};
-
 class Rx : public RcPeer {  
 public:
   Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : RcPeer(mac_tx, channel, iface, lmk) { 
     throttle.failsafe(); chan1.failsafe(); 
   }
   void command(struct TxData &rc, unsigned long now) {
-    if (!connected) { connected = true; timer.start(); led.set(StatusOk); }  // timer can be reset using first minimal throttle command
+    if (!connected) { connected = true; timer.start(); status.value = Status::Ok; }  // timer can be reset using first minimal throttle command
     if (CheckSum(rc) == rc.checkSum) { 
       timeLastTx = now;
-      int mThr = maxThrottle.read();
-      if (firstThrHold && rc.throttle > TxThrottleHoldPulse) { firstThrHold = false; }
-      if (abs(thrMax-mThr) > 5) thrMax = mThr;
-      thrLast = throttle.writeTx(min(rc.throttle, thrMax));
-      chan1.writeTx(rc.chan1);
+      if (rc.throttle == TxThrottleHoldPulse) {  // only modify max time if TH 
+        int mt = maxTime.read();
+        if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
+        waitThrHold = false;  // wait for (first) TH at start Rx
+      }
+      thrLast = throttle.writeTx(waitThrHold ? throttle.failSaveValue() : rc.throttle);
+      chan1.writeTx(rc.chan1); chan2.writeTx(rc.chan2); chan3.writeTx(rc.chan3);
       if (rc.id < 100) {  // new Tx 
-        timer.start(); led.set(StatusOk); 
+        timer.start(); status.value = Status::Ok;
         packetsLost = 0; lastId = -1; count = -1; 
       }    
       if (lastId > 0) packetsLost += rc.id - lastId - 1;
@@ -87,12 +85,12 @@ public:
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, 0, 123, rsi, timer.secondsLeft(), throttle.isStop(), totalLost};
+      struct Telemetry tel = {0, rc.id, 0, 123, rsi, timer.secondsLeft(), totalLost};
       tel.checkSum = CheckSum(tel);
       send_data((const uint8_t *)&tel, sizeof(tel));
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      logger->printf("[Rx] id:%d, thr:%d, rcthr:%d, ch1:%d, ch2:%d, ch3:%d, ms:%d, rsi:%d, t:%d, stop:%d, lost:%d, mthr:%d\n", 
-                      rc.id, thrLast, rc.throttle, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), throttle.isStop(), totalLost, thrMax);
+      logger->printf("[Rx %s] id:%d, thr:%d, ch1:%d, ch2:%d, ch3:%d, ms:%d, rsi:%d, t:%d, maxt:%d, lost:%d\n", 
+                      status.str(), rc.id, thrLast, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), maxSecs, totalLost);
       count = packetsLost = 0;
       timeLast1st = now;
     }
@@ -102,17 +100,18 @@ public:
     unsigned long now = millis();
     command(rc, now);
     telemetry(rc, now);
-    led.set((timer.elapsed()) ? StatusEndFlight : (packetsLost > 0) ? StatusError : (firstThrHold) ? StatusWaitThrHold: StatusOk);
+    status.value = (timer.elapsed() ? Status::EndFlight : (packetsLost > 0) ? Status::Error : (waitThrHold) ? Status::WaitThrHold: Status::Ok);
   }
-  void statusUpdate() { led.update(); }
+  void statusUpdate() { led.set(status.pulse()); led.update(); }
   void checkFailsafe() { 
     if (connected) {
       unsigned long last = timeLastTx;     // copy of last before geting now, this function can be interupted
       unsigned long now = millis();
       if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
-        if (timer.elapsed()) throttle.failsafe(); else throttle.warnAndStop();
+        // TODO if (timer.elapsed()) throttle.failsafe(); else throttle.warnAndStop();
+        throttle.failsafe();
         chan1.failsafe();
-        led.set(StatusFailsafe);
+        status.value = Status::Failsafe;
         logger->printf("FAILSAFE!!!!\n");
         timeLastTx = now;                  // another test in FAILSAFE_TIME
       }
@@ -128,13 +127,19 @@ public:
   }
 private:
   RcTimer timer{maxFlight};
-  RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
+  int warnEndFlight = nrWarns * status.pulseTab[Status::EndFlight]/1000 + stopEngine;
   Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, warnEndFlight, nrWarns};
-  Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
-  Led led{pinLed, StatusWaitTxRx};
-  bool connected = false, firstThrHold = true;
+  Potmeter maxTime{pinMaxTime, 10, maxFlight};
+  RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan2{pinChan2, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan3{pinChan3, TxMinPulse, TxMaxPulse, 0, -1};
+  VoltageDiv vBatt{pinVBatt, lipoDivR1, lipoDivR2};
+  Potmeter lowVBatt{pinVBattLow, 0, vBatt.max()}; 
+  Status status{Status::WaitTxRx};
+  Led led{pinLed, status.pulse(), true};  // todo
+  bool connected = false, waitThrHold = true;
   unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
-  int thrLast = -1, thrMax = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
+  int maxSecs = -1, thrLast = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
 };
 
 Rx *rx = 0; // initialisation must in setup 

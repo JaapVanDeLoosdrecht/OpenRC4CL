@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 16 November 2025
+Utils for OpenRC4CL 30 November 2025
 
 MIT license
 
@@ -33,7 +33,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.14";
+const char *OpenRC4CL_VERSION = "0.0.15";
 
 struct TxData { int checkSum; int id; int throttle; int chan1; int chan2; int chan3; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
@@ -47,21 +47,36 @@ const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
 
-// status blink pulse in us   todo class Status, change WaitTxRx to WaitConnection
-const int StatusOk = 0, StatusWaitThrHold = 1000, StatusWaitStart = 1000, StatusWaitTxRx = 2000, 
-          StatusEndFlight = 4000, StatusFailsafe = 500, StatusError = 200;
+struct Status {	
+  enum StatusId         {  Ok,   WaitThrHold,   WaitTxRx,   EndFlight,   Failsafe,   Error };
+  char *strTab[6] =     { "Ok", "WaitThrHold", "WaitTxRx", "EndFlight", "Failsafe", "Error" };
+  int pulseTab[6] =     {  0,    1000,          0,          2000,        500,        200 };
+  Status(StatusId s=Error) { value = s; }
+  int pulse() { return pulseTab[value]; }  // status blink pulse in us 
+  char* str() { return strTab[value]; }
+  StatusId value;
+};
 
 int avgAnalogMilliVolts(int pin, int nrSamples) {
+  if (pin == PIN_NOT_USED) return 0; 
   int sum = 0; for(int i = 0; i < nrSamples; i++) sum += analogReadMilliVolts(pin);
   return sum / nrSamples;
 }
+
+class VoltageDiv {
+public:
+  VoltageDiv(int pin, int r1, int r2) {  _pin = pin; _r1 = r1; _r2 = r2; _div = ((r1+r2)/r1); }
+  int read() { return avgAnalogMilliVolts(_pin, 16) * _div; }  // V in mV over r1
+  int max() { return 3300 * _div; }
+private:
+  int _pin, _r1, _r2, _div;
+};
 
 class Logger {  // log msgs to both Serial and SerialBLE, use Serial Bluetooth Terminal App (Google play)
 public:
   Logger(char *BLE_device, int max_buf = 80) { SerialBLE.begin(BLE_device); _max_buf = max_buf; _buf = new char[_max_buf]; }
   void printf(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
+    va_list args; va_start(args, format);
     vsnprintf(_buf, _max_buf, format, args);
     va_end(args);
     Serial.print(_buf); SerialBLE.print(_buf); SerialBLE.flush();
@@ -71,16 +86,18 @@ private:
   BLESerial<> SerialBLE;
 };
 
-class Blink {  // base class Led/Beep, ms pulse width, 0 ms is always on
+class Blink {  // base class Led/Beep, ms pulse width, 0 ms is always on ??? todo
 public:
-  Blink(int pin, int ms, bool inv, int rep) { 
-    pinMode(pin, OUTPUT); _pin = pin; 
-	if (inv) { off = HIGH; on = LOW; } else { off = LOW; on = HIGH; }  // Note LED_BUILTIN is reversed on C6
+  Blink(int pin, int ms, bool inv, int rep) {   // Note LED_BUILTIN is reversed on C6
+    _pin = pin; 
+	if (inv) { off = HIGH; on = LOW; } else { off = LOW; on = HIGH; }  
 	set(ms, rep); 
+	if (_pin != PIN_NOT_USED) { pinMode(_pin, OUTPUT); } 
   }
   void set(int ms, int rep=0) { _ms = ms; _rep = rep; count = 0; active = false; } 
   void update() {
-	//Serial.printf("[Blink] pin:%d, ms:%d, active:%d, rep:%d, count:%d, on:%d, off:%d\n", _pin, _ms, active, _rep, count, on, off);
+	if (_pin == PIN_NOT_USED) return;
+	// if (_pin == D8 && _rep > 1) Serial.printf("[Blink] pin:%d, ms:%d, active:%d, rep:%d, count:%d, on:%d, off:%d\n", _pin, _ms, active, _rep, count, on, off);
     if ((_rep == 0) || (count <= _rep)) {
       if (_ms != 0) {
         bool s = (millis() % _ms < _ms / 2);
@@ -104,7 +121,7 @@ public:
   Led(int pin, int ms, int inv=false, int rep=0): Blink(pin, ms, inv, rep) {}
 };
 
-class Beep : public Blink {  // status blink led in ms pulse width, 0 ms is always on
+class Beep : public Blink {  // status beeper in ms pulse width, 0 ms is always on
 public:
   Beep(int pin, int ms, int inv=false, int rep=1): Blink(pin, ms, inv, rep) {}
 };
@@ -112,8 +129,8 @@ public:
 
 class PushButton {  // one end to GND, other end to digital input, no external pullup Rs
 public:             // note: the two pins on each side, close to each other, are connected 
-  PushButton(int pin) { _pin = pin; pinMode(_pin, INPUT_PULLUP); }
-  bool read() { return !digitalRead(_pin); }   // LOW (pushed) or HIGH (not pushed)
+  PushButton(int pin) { _pin = pin; if (_pin != PIN_NOT_USED) pinMode(_pin, INPUT_PULLUP); }
+  bool read() { return (_pin != PIN_NOT_USED) ? !digitalRead(_pin) : HIGH; }   // LOW (pushed) or HIGH (not pushed)
 private:
   int _pin;
 };
@@ -167,6 +184,7 @@ private:
 class RcServo {  // Note in standard RC connector the middle connector is always Vcc
 public:
   RcServo(int pin, int min=TxMinPulse, int max=TxMaxPulse, int mid=0, int fail=-1, bool reverse=false) {  // -1 = last position
+  _pin = pin;
     set(min, max, mid, fail, reverse);
     servo.attach(pin, min, max);
 	failsafe();
@@ -177,15 +195,15 @@ public:
 	if (_reverse) {_min = max; _max = min;}
   }
   void writeTx(int txValue) { write(map(txValue + _mid, TxMinPulse, TxMaxPulse, _min, _max)); _last = txValue;}
-  void write(int usValue) { servo.writeMicroseconds(usValue); }
+  void write(int usValue) { if (_pin != PIN_NOT_USED) servo.writeMicroseconds(usValue); }
   void failsafe() { int v = (_fail >= 0) ? _fail : _last; writeTx(v); }
-  int read() { return servo.readMicroseconds(); }
+  int read() { return (_pin != PIN_NOT_USED) ? servo.readMicroseconds() : _min; }
   int failSaveValue() { return _fail; }
   bool reverse() { return _reverse; }
 protected:
   Servo servo;
   bool _reverse;
-  int _min, _max, _mid, _fail, _last; 
+  int _pin, _min, _max, _mid, _fail, _last; 
 };
 
 class Throttle : public RcServo { 
@@ -206,14 +224,17 @@ public:
       if (timerSet && (maxFlight > 0)) {    
         int t = timer->time();
 		stop = (t >= warnTime) || stop;
-        if (stop && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) 
+		// --------------  does not enter if -------------------
+        if (stop && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) {
+		  Serial.printf("[debug thr] time: %d, warnTime:%d, endWarnTime:%d, stop:%d\n", t, warnTime, endWarnTime, stop);
           v = reverse() ? (_max - (_max-v) / 2) : (_min + (v-_min) / 2); 
+		}
 	  }
 	}
     RcServo::writeTx(v);
 	return v;
   }
-  void resetTimer(int maxFlightSecs) { timer->start(maxFlight=maxFlightSecs); setWarnTime(); }  // used by CLTimer
+  void resetTimer(int maxFlightSecs) { timer->start(maxFlight=maxFlightSecs); setWarnTime(); }
   void warnAndStop() { // initiate end warning and stop, used by failsafe and batt low
     if (timer) {
       if (!stop) { 
@@ -226,15 +247,18 @@ public:
 	  if (stop) failsafe();
 	}
   } 
-  bool isStop() { return stop; }
+  bool isStop() { return stop; }  // True: warn stopping is started
+  // void debug() { Serial.printf("[debug thr] warnTime:%d, endWarnTime:%d, stop:%d\n", 
+  //                warnTime, endWarnTime, stop); }
 private:
   RcTimer *timer;
   bool timerSet = false, stop = false;
-  int lastThr, minThr, maxFlight, warnEndFlight, nrWarn, endWarn;      
+  int lastThr, minThr, maxFlight, warnEndFlight, nrWarn;      
   unsigned long warnTime, endWarnTime;  
   void setWarnTime() {  // set start and end warning time
     warnTime = (maxFlight - warnEndFlight) * RcTimer::TicksPerSec;
 	endWarnTime = warnTime  + nrWarn * RcTimer::TicksPerSec;
+	stop = false;
   }
 };
 

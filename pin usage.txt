@@ -4,7 +4,7 @@ Rx:
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
 - A0: throttle (output servo)
 - A1: chan1 (output servo)
-- A2: max throttle (input potmeter) OR chan 3, NOTE: software configurable
+- A2: chan2 (output servo)
 - D3: (=A3?, does this exists? GPIO21? =(D3))
 - D4: beeper (output)
 - D5
@@ -13,15 +13,15 @@ Rx:
 - D8
 - D9: select wifi 0   (input dipwsitch)
 - D10: select wifi 1  (input dipwsitch)
-- A4: chan2 (output servo)
-- A5: low VBatt warning voltage setting (input potmeter)
+- A4: chan3 (output servo)
+- A5: low VBatt warning voltage or timer setting (input potmeter)
 - A6: 8S lipo voltage monitor (input)
 
 Tx:
 - LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
 - A0: throttle (input potmeter)
-- A1: chan3 (input potmeter)
-- A2: chan4 (input potmeter)
+- A1: Tx lipo voltage monitor (1 cell lipo) (input)
+- A2: flight timer (input potmeter)
 - D3: throttle hold (input switch)
 - D4: leftCh1  (input switch)
 - D5: rightCh1  (input swith)
@@ -30,9 +30,9 @@ Tx:
 - D8: beeper (output)
 - D9: select wifi 0  (input dipwsitch)
 - D10: select wifi 1  (input dipwsitch)
-- A4: 
-- A5: flight timer (input potmeter)
-- A6: Tx lipo voltage monitor (1 cell lipo) (input)
+- A4: chan3 (input potmeter)
+- A5: 
+- A6: 
 
 
 -----------------------------------------------------------------------
