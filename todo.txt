@@ -1,10 +1,5 @@
 Todo:
-- add to class Throttle EscWarn to dis/en_able Esc throttle warning
-- add vbatt and low vbatt to telemetry, vbatt < low vbatt -> buzzer
-- add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
 - class DipSwitch for max 4 pins
-- remove timer from Rx is NOT possible, timer is needed for failsave
-  new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
 - CLTimer: 
   Beeper warning signal N secs before starting engine
   Abort starting sequence and running with button
@@ -12,12 +7,15 @@ Todo:
   rampup time if starting from zero
 - first use powerbank as powersupply for Tx, replace later with lipo
 - first Tx test on combat handle with killswitch and throttle dail on top of handle
+- sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
 
 protype board:
 - mark servo and VBatt headers with heat-shrink tubing
 
 fase2:
 - use 2 dipswitches to select 4 different wifi channel nrs in Rx and Tx
+- new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
+- ?? add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
 - exponential throttle
 - soft mac address
 - (paper display on TX)
@@ -35,9 +33,9 @@ fase2:
 )
 
 Changed:
-- remove max thr from Rx, have always on pot meter on Tx also for combat
-- display Tx log TH and Thr value before telemetry
-- Rx to TH if Rx turned on and first msg (after checksum check) is not TH
-  leave this mode after TH is received from Tx
-- added PIN_NOT_USED and default action for all sensors and actuators 
-- new struct Status
+- bugfix esc thr warning
+- added to class Throttle EscWarn to dis/en_able Esc throttle warning
+- added vbatt and low vbatt to telemetry, vbatt < low vbatt -> buzzer
+- added batt Tx and warning/error
+- added nr error in telemetry and logging for both Tx and Rx
+

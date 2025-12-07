@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 30 November 2025
+Utils for OpenRC4CL 7 December 2025
 
 MIT license
 
@@ -33,29 +33,29 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.15";
+const char *OpenRC4CL_VERSION = "0.0.16";
+
+struct Status {	
+  enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   Error };
+  static inline const char* const  strTab[8] = { "Ok", "WaitThrHold", "WaitTxRx", "VBattLow", "TxBattLow", "EndFlight", "Failsafe", "Error" };
+  static constexpr const int pulseTab[8] =     {  0,    1000,          0,          2000,       2000,        2000,        500,        200 };
+  Status(StatusId s=Error) { value = s; }
+  const int pulse() { return pulseTab[value]; }  // status blink pulse in us 
+  const char* str() { return strTab[value]; }
+  StatusId value;
+};
 
 struct TxData { int checkSum; int id; int throttle; int chan1; int chan2; int chan3; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
 
-struct Telemetry { int checkSum; int id; int vBatLow; int vBat; int rsi; int time_left; int stop; int totalLost; };
-inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost; }
+struct Telemetry { int checkSum; int id; int vBatLow; int vBat; int rsi; int time_left; int stop; int totalLost; int errors; };
+inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost ^ t.errors; }
 
 const int TxMinPulse = 1000;  // Tx pulses in us    todo class TxPulse::Min, etc
 const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
-
-struct Status {	
-  enum StatusId         {  Ok,   WaitThrHold,   WaitTxRx,   EndFlight,   Failsafe,   Error };
-  char *strTab[6] =     { "Ok", "WaitThrHold", "WaitTxRx", "EndFlight", "Failsafe", "Error" };
-  int pulseTab[6] =     {  0,    1000,          0,          2000,        500,        200 };
-  Status(StatusId s=Error) { value = s; }
-  int pulse() { return pulseTab[value]; }  // status blink pulse in us 
-  char* str() { return strTab[value]; }
-  StatusId value;
-};
 
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   if (pin == PIN_NOT_USED) return 0; 
@@ -208,25 +208,23 @@ protected:
 
 class Throttle : public RcServo { 
 public:
-  Throttle(int pin, RcTimer *rctimer=0, int minThrottle=0, int maxFlightSecs=0, 
-           int warnEndFlightSecs=5, int nrWarns=2, bool reverse=false) : 
+  Throttle(int pin, RcTimer *rctimer, int minThrottle, int maxFlightSecs, bool escWarning,
+           int nrWarns=2, int stopEngine=5, bool reverse=false) : 
            RcServo(pin, TxMinPulse, TxMaxPulse, 0, reverse ? (TxMaxPulse+ThrHoldDelta) : (TxMinPulse-ThrHoldDelta), reverse) {
 	timer = rctimer; lastThr = failSaveValue(); minThr = minThrottle; timerSet = minThrottle == 0; nrWarn = nrWarns;
-    maxFlight = maxFlightSecs; warnEndFlight = warnEndFlightSecs; 
+    maxFlight = maxFlightSecs; escWarn = escWarning; stopEng = stopEngine; 
 	setWarnTime();
   }
   int writeTx(int txValue) {
     int v = lastThr = txValue;
-	if ((v == TxThrottleHoldPulse) || (timer->elapsed())) {
+	if ((v == TxThrottleHoldPulse) || (escWarn && timer->elapsed())) {
 	  v = failSaveValue();
 	} else {	
       if ((!timerSet) && (minThr > 0) && (v > minThr)) { timer->start(maxFlight); timerSet = true; }
-      if (timerSet && (maxFlight > 0)) {    
+      if (escWarn && timerSet && (maxFlight > 0)) {    
         int t = timer->time();
 		stop = (t >= warnTime) || stop;
-		// --------------  does not enter if -------------------
         if (stop && (t < endWarnTime) && (t % RcTimer::TicksPerSec < RcTimer::TicksPerSec/2)) {
-		  Serial.printf("[debug thr] time: %d, warnTime:%d, endWarnTime:%d, stop:%d\n", t, warnTime, endWarnTime, stop);
           v = reverse() ? (_max - (_max-v) / 2) : (_min + (v-_min) / 2); 
 		}
 	  }
@@ -234,7 +232,12 @@ public:
     RcServo::writeTx(v);
 	return v;
   }
-  void resetTimer(int maxFlightSecs) { timer->start(maxFlight=maxFlightSecs); setWarnTime(); }
+  void resetTimer(int maxFlightSecs) { 
+    if (timer) {
+      timer->start(maxFlight=maxFlightSecs); 
+	  setWarnTime(); 
+	}
+  }
   void warnAndStop() { // initiate end warning and stop, used by failsafe and batt low
     if (timer) {
       if (!stop) { 
@@ -248,16 +251,15 @@ public:
 	}
   } 
   bool isStop() { return stop; }  // True: warn stopping is started
-  // void debug() { Serial.printf("[debug thr] warnTime:%d, endWarnTime:%d, stop:%d\n", 
-  //                warnTime, endWarnTime, stop); }
 private:
   RcTimer *timer;
-  bool timerSet = false, stop = false;
-  int lastThr, minThr, maxFlight, warnEndFlight, nrWarn;      
+  bool escWarn, timerSet = false, stop = false;
+  int lastThr, minThr, maxFlight, warnEndFlight, nrWarn, stopEng;      
   unsigned long warnTime, endWarnTime;  
   void setWarnTime() {  // set start and end warning time
-    warnTime = (maxFlight - warnEndFlight) * RcTimer::TicksPerSec;
-	endWarnTime = warnTime  + nrWarn * RcTimer::TicksPerSec;
+    warnEndFlight = min(maxFlight, nrWarn * Status::pulseTab[Status::EndFlight]/1000 + stopEng);  // secs before end of flight
+    warnTime = (maxFlight - warnEndFlight) * RcTimer::TicksPerSec;                                // wall clock
+	endWarnTime = warnTime  + nrWarn * RcTimer::TicksPerSec;                                      // wall clock
 	stop = false;
   }
 };

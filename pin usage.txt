@@ -21,7 +21,7 @@ Tx:
 - LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
 - A0: throttle (input potmeter)
 - A1: Tx lipo voltage monitor (1 cell lipo) (input)
-- A2: flight timer (input potmeter)
+- A2: chan3 (input potmeter)
 - D3: throttle hold (input switch)
 - D4: leftCh1  (input switch)
 - D5: rightCh1  (input swith)
@@ -30,7 +30,7 @@ Tx:
 - D8: beeper (output)
 - D9: select wifi 0  (input dipwsitch)
 - D10: select wifi 1  (input dipwsitch)
-- A4: chan3 (input potmeter)
+- A4: 
 - A5: 
 - A6: 
 

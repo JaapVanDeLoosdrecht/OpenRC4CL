@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 30 November 2025
+Rx OpenRC4CL 7 December 2025
 
 MIT license
 
@@ -30,14 +30,15 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
 #ifndef SECRET
 #define WIFI_CHANNEL 6
-const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Tx
+const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with your mac address of Tx
 char *BLE_device_Rx = "Rx-OpenRC4CL";                           // modify with your name
 #endif
 
 // user settings
-const int maxFlight = 8*60;                 // seconds, if maxTime is not in used
+const int maxFlight = 8*60;                 // seconds, if maxTime is not in used. Note in general
 const int nrWarns = 2;                      // number if throttle warnings before stopping engine
-const int stopEngine = 1;                   // stop engine after last warning
+const int stopEngine = 1;                   // nr of secs to stop engine after last warning
+const bool escWarning = false;              // if true issue Esc warning of end of flight
 const int minThrottle = TxMidPulse;         // min trhottle value to start timer, 0 = no restart timer 
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
@@ -45,8 +46,8 @@ const int pinThrottle = A0;
 const int pinChan1 = PIN_NOT_USED;          // A1;                    
 const int pinChan2 = PIN_NOT_USED;          // A2;                    
 const int pinChan3 = PIN_NOT_USED;          // A4;  
-const int pinMaxTime = A1;                  // A5;  
-const int pinVBattLow = PIN_NOT_USED;       // A5;  
+const int pinMaxTime = PIN_NOT_USED;        // A5;  
+const int pinVBattLow = A1;                 // A5;  
 const int pinVBatt = A2;                    // A6;  
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
 const int lipoDivR2 = 100000;               // R2 lipo voltage divider
@@ -64,9 +65,11 @@ public:
     if (!connected) { connected = true; timer.start(); status.value = Status::Ok; }  // timer can be reset using first minimal throttle command
     if (CheckSum(rc) == rc.checkSum) { 
       timeLastTx = now;
-      if (rc.throttle == TxThrottleHoldPulse) {  // only modify max time if TH 
-        int mt = maxTime.read();
-        if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
+      if (rc.throttle == TxThrottleHoldPulse) {  
+        if (pinMaxTime != PIN_NOT_USED) {    
+          int mt = maxTime.read();
+          if (abs(mt-maxSecs) > 5) throttle.resetTimer(maxSecs = mt);  // only modify max time if TH 
+        }
         waitThrHold = false;  // wait for (first) TH at start Rx
       }
       thrLast = throttle.writeTx(waitThrHold ? throttle.failSaveValue() : rc.throttle);
@@ -85,12 +88,13 @@ public:
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, 0, 123, rsi, timer.secondsLeft(), totalLost};
+      struct Telemetry tel = {0, rc.id, lowVBatt.read(), vBatt.read(), rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
-      send_data((const uint8_t *)&tel, sizeof(tel));
+      if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      logger->printf("[Rx %s] id:%d, thr:%d, ch1:%d, ch2:%d, ch3:%d, ms:%d, rsi:%d, t:%d, maxt:%d, lost:%d\n", 
-                      status.str(), rc.id, thrLast, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), maxSecs, totalLost);
+      logger->printf("Rx:%s] thr:%d ch1:%d ch2:%d ch3:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d id:%d\n", 
+                      status.str(), thrLast, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), 
+                      maxSecs, totalLost, errors, rc.id);
       count = packetsLost = 0;
       timeLast1st = now;
     }
@@ -108,28 +112,18 @@ public:
       unsigned long last = timeLastTx;     // copy of last before geting now, this function can be interupted
       unsigned long now = millis();
       if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
-        // TODO if (timer.elapsed()) throttle.failsafe(); else throttle.warnAndStop();
         throttle.failsafe();
-        chan1.failsafe();
+        chan1.failsafe(); chan2.failsafe(); chan3.failsafe();
         status.value = Status::Failsafe;
         logger->printf("FAILSAFE!!!!\n");
         timeLastTx = now;                  // another test in FAILSAFE_TIME
       }
     }
   }
-  void checkVBatt() {    // WIP
-    // static bool warnOnce = false;
-    // if (!warnOnce && (timer.seconds() > 3)) {
-    //   throttle.warnAndStop();
-    //   warnOnce = true;
-    //   logger->printf("Bat low!!!!\n");
-    // }
-  }
 private:
   RcTimer timer{maxFlight};
-  int warnEndFlight = nrWarns * status.pulseTab[Status::EndFlight]/1000 + stopEngine;
-  Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, warnEndFlight, nrWarns};
-  Potmeter maxTime{pinMaxTime, 10, maxFlight};
+  Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, escWarning, nrWarns, stopEngine};
+  Potmeter maxTime{pinMaxTime, 10, maxFlight}; 
   RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan2{pinChan2, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan3{pinChan3, TxMinPulse, TxMaxPulse, 0, -1};
@@ -139,7 +133,7 @@ private:
   Led led{pinLed, status.pulse(), true};  // todo
   bool connected = false, waitThrHold = true;
   unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
-  int maxSecs = -1, thrLast = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0;
+  int maxSecs = -1, thrLast = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0, errors = 0;
 };
 
 Rx *rx = 0; // initialisation must in setup 
@@ -160,6 +154,5 @@ void setup() {
 
 void loop() {
   rx->checkFailsafe();
-  rx->checkVBatt();
   rx->statusUpdate();
 }

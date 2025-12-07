@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 30 November 2025
+TX OpenRC4CL 7 December 2025
 
 MIT license
 
@@ -30,13 +30,13 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
 #ifndef SECRET
 #define WIFI_CHANNEL 6
-const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with mac address of Rx
+const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with your mac address of Rx
 char *BLE_device_Tx = "Tx-OpenRC4CL";                          // modify with your name
 #endif
 
 // user settings
 const int nrWarns = 2;                      // number if throttle warnings before stopping engine
-const int stopEngine = 1;                   // stop engine after last warning
+const int stopEngine = 1;                   // seconds to stop engine after last warning  TODO or do this manuanlly with TH??
 // hardware
 const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
@@ -47,6 +47,11 @@ const int pinLeftCh2 = D6;
 const int pinRightCh2 = D7;
 const int pinCh3 = PIN_NOT_USED;  // A2; 
 const int pinBeep = D8;   
+const int pinVBatt = A1;                      
+const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb
+const int lipoDivR2 = 10000;                // R2 lipo voltage divider
+// system
+const int txBattLow = 3500;                 // min voltage for Tx lipo
 
 Logger *logger = 0; 
 
@@ -68,36 +73,37 @@ public:
   void sendTx() {
     struct TxData rc{0, ++id, readThrottle(), chan1.read(), chan2.read(), chan3.read()}; 
     rc.checkSum = CheckSum(rc);
-    if (this->send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
+    if (send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
       lastId = id;
     } else {
-      if (abs(id - lastId) > 5) {
-        status.value = Status::Error;
-        logger->printf("[Tx] FAILED TO SEND id: %d\n", id);
-      }
+      if (abs(id - lastId) > 1) { status.value = Status::Error; errors++; }
     }
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {
     struct Telemetry tel = *(struct Telemetry *)data;
     connected = true;
     if (CheckSum(tel) != tel.checkSum) { 
-      status.value = Status::Error;
-      logger->printf("[Tx tele] CHECKSUM ERROR id: %d\n", tel.id);
+      status.value = Status::Error; errors++;
+      logger->printf("[Tx:%s bat:%d thr:%d err:%d]\n", status.str(), txBatt.read(), readThrottle(), errors);
       return;
     }
-    if (tel.time_left > warnEndFlight) {
-      status.value = Status::Ok;
-      beep_end_flight = false; // needed if Rx is reset after end of 
+    bool txBattLow = (txBatt.read() < txBattLow);
+    bool vBattLow = (tel.vBatLow > 0) && (tel.vBat < tel.vBatLow);
+    bool eot = tel.time_left < warnEndFlight;
+    if (!(endFlight = txBattLow || vBattLow || eot)) {
+      status.value = Status::Ok;                                                                                                                                                                                              ;
+      beepEndFlight = false; // needed if Rx is reset after end of flight
     } else {
-      status.value = Status::EndFlight;
+      status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
-    logger->printf("[Tx %s] thr:%d [tele] id:%d, vLow:%d, v:%d, rsi:%d, time:%d, lost:%d\n", 
-                   status.str(), readThrottle(), tel.id, tel.vBatLow, tel.vBat, tel.rsi, tel.time_left, tel.totalLost);
+    logger->printf("[Tx:%s bat:%d thr:%d err:%d] [tele vLow:%d vBat:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
+                   status.str(), txBatt.read(), readThrottle(), errors, tel.vBatLow, tel.vBat, tel.rsi, 
+                   tel.time_left, tel.totalLost, tel.errors, tel.id);
   }
   void statusUpdate() { 
     led.set(status.pulse()); led.update(); 
-    if (status.value == Status::EndFlight) {
-      if (!beep_end_flight) { beep.set(status.pulse(), nrWarns); beep_end_flight = true; }  
+    if (endFlight) {
+      if (!beepEndFlight) { beep.set(status.pulse(), nrWarns); beepEndFlight = true; }  
     } else {
       beep.set(status.pulse());
     }
@@ -110,12 +116,13 @@ private:
   Switch chan1{pinLeftCh1, pinRightCh1};
   Switch chan2{pinLeftCh2};
   Potmeter chan3{pinCh3};
+  VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
   Beep beep{pinBeep, status.pulse()};
-  bool connected = false, beep_end_flight = false;
-  int id = 0, lastId = 0;
-  int warnEndFlight = nrWarns * status.pulseTab[Status::EndFlight]/1000 + stopEngine;
+  bool connected = false, endFlight = false, beepEndFlight = false;
+  int id = 0, lastId = 0, errors = 0;  // #errors = #send + #checksum
+  int warnEndFlight = nrWarns * Status::pulseTab[Status::EndFlight]/1000 + stopEngine;
 };
 
 Tx *tx = 0;  // initialisation must in setup due to changing pinModes to OUTPUT
@@ -134,9 +141,6 @@ void setup() {
                   OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
   tx->wait4ThrHold();
 }
-
-
-Beep beep{pinBeep, 4000, false, 3};
 
 void loop() {
   tx->sendTx();
