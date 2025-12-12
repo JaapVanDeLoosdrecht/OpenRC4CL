@@ -30,7 +30,7 @@ Tx:
 - D8: beeper (output)
 - D9: select wifi 0  (input dipwsitch)
 - D10: select wifi 1  (input dipwsitch)
-- A4: 
+- A4: deadband throttle (input potmeter)
 - A5: 
 - A6: 
 

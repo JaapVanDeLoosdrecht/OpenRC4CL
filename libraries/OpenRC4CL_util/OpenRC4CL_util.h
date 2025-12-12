@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 7 December 2025
+Utils for OpenRC4CL 12 December 2025
 
 MIT license
 
@@ -33,7 +33,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.16";
+const char *OpenRC4CL_VERSION = "0.0.17";
 
 struct Status {	
   enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   Error };
@@ -45,17 +45,19 @@ struct Status {
   StatusId value;
 };
 
-struct TxData { int checkSum; int id; int throttle; int chan1; int chan2; int chan3; }; 
+struct TxData { int checkSum, id, throttle, chan1, chan2, chan3; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
 
-struct Telemetry { int checkSum; int id; int vBatLow; int vBat; int rsi; int time_left; int stop; int totalLost; int errors; };
-inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBatLow ^ t.vBat ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost ^ t.errors; }
+struct Telemetry { int checkSum, id, vBat, vBatLow, rsi, time_left, stop, totalLost, errors; };
+inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBat ^ t.vBatLow ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost ^ t.errors; }
 
 const int TxMinPulse = 1000;  // Tx pulses in us    todo class TxPulse::Min, etc
 const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
+
+const int wifiChans[] = {1, 6, 11 ,13};  // wifi chans for selecting with 2 pos dipswitch
 
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   if (pin == PIN_NOT_USED) return 0; 
@@ -126,7 +128,6 @@ public:
   Beep(int pin, int ms, int inv=false, int rep=1): Blink(pin, ms, inv, rep) {}
 };
 
-
 class PushButton {  // one end to GND, other end to digital input, no external pullup Rs
 public:             // note: the two pins on each side, close to each other, are connected 
   PushButton(int pin) { _pin = pin; if (_pin != PIN_NOT_USED) pinMode(_pin, INPUT_PULLUP); }
@@ -151,11 +152,30 @@ private:
   PushButton *leftP, *rightP = 0;
 };
 
+class DipSwitch {
+public:
+  static const int MAX_DIPS = 4;
+  DipSwitch(int nr, int pins[]) { 
+    _nr = nr;
+    for (int s = 0; s < _nr; s++) { _switch[s] = new Switch(pins[s]); };
+  }
+  int readOne(int s) { return (int)_switch[s]->readPos(); }
+  int read() {  // aggregated binairy result of all switches
+    int res = 0;
+    for (int s = 0; s < _nr; s++) { res += (s+1) * readOne(s); }
+    return res;
+  }
+private:
+  int _nr;
+  Switch* _switch[MAX_DIPS];
+};
+
 class Potmeter {  // use 10K ohm and 3.3V (NOT 5V), ESP32-C6 analogReadMilliVolt is factory calibrated, analogRead returns raw ADC value.
 public:
   Potmeter(int pin, int min=TxMinPulse, int max=TxMaxPulse, int nrSamples=16) { _pin = pin; _min = min; _max = max; _nrS = nrSamples; }
   int read() { return map(readV(), 0, VRef, _min, _max); }
   int readV() { return avgAnalogMilliVolts(_pin, _nrS); }
+  void setMinMax(int min, int max=TxMaxPulse) { _min = min; _max = max; }
 private:
   const int VRef = 3350;  // note 50 mV above reference
   int _pin, _min, _max, _nrS;

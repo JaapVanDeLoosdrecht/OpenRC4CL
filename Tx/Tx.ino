@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 7 December 2025
+TX OpenRC4CL 12 December 2025
 
 MIT license
 
@@ -38,20 +38,25 @@ char *BLE_device_Tx = "Tx-OpenRC4CL";                          // modify with yo
 const int nrWarns = 2;                      // number if throttle warnings before stopping engine
 const int stopEngine = 1;                   // seconds to stop engine after last warning  TODO or do this manuanlly with TH??
 // hardware
-const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
+const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinThrottleHold = D3;
 const int pinLeftCh1 = D4;
 const int pinRightCh1 = D5;
 const int pinLeftCh2 = D6;
 const int pinRightCh2 = D7;
-const int pinCh3 = PIN_NOT_USED;  // A2; 
+const int pinCh3 = PIN_NOT_USED;            // A2; 
+const int pinDeadBand = A2;                 // A4; 
 const int pinBeep = D8;   
+const int pinWifi0 = D9;
+const int pinWifi1 = D10;
 const int pinVBatt = A1;                      
-const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb
+const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
 const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 // system
 const int txBattLow = 3500;                 // min voltage for Tx lipo
+const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no overleap with TH
+const int deadBandMin = -deadBandMax;              
 
 Logger *logger = 0; 
 
@@ -66,9 +71,8 @@ public:
     status.value = Status::WaitTxRx;
   }
   int readThrottle() {
-   int thr = throttle.read();
-    if (hold.readPos() == Thr_Hold) thr = TxThrottleHoldPulse;
-   return thr;
+    throttle.setMinMax(TxMinPulse + deadBand.read());
+    return (hold.readPos() == Thr_Hold) ? TxThrottleHoldPulse : throttle.read();
   }
   void sendTx() {
     struct TxData rc{0, ++id, readThrottle(), chan1.read(), chan2.read(), chan3.read()}; 
@@ -96,8 +100,8 @@ public:
     } else {
       status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
-    logger->printf("[Tx:%s bat:%d thr:%d err:%d] [tele vLow:%d vBat:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
-                   status.str(), txBatt.read(), readThrottle(), errors, tel.vBatLow, tel.vBat, tel.rsi, 
+    logger->printf("[Tx:%s bat:%d thr:%d dead:%d err:%d] [tele vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
+                   status.str(), txBatt.read(), readThrottle(), deadBand.read(), errors, tel.vBat, tel.vBatLow, tel.rsi, 
                    tel.time_left, tel.totalLost, tel.errors, tel.id);
   }
   void statusUpdate() { 
@@ -116,6 +120,7 @@ private:
   Switch chan1{pinLeftCh1, pinRightCh1};
   Switch chan2{pinLeftCh2};
   Potmeter chan3{pinCh3};
+  Potmeter deadBand{pinDeadBand, deadBandMin, deadBandMax};
   VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
@@ -130,15 +135,18 @@ Tx *tx = 0;  // initialisation must in setup due to changing pinModes to OUTPUT
 void setup() {
   Serial.begin(115200);
   logger = new Logger(BLE_device_Tx, 120);
-  WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
+  int pins_dip[] = {pinWifi0, pinWifi1};
+  DipSwitch dip(2, pins_dip);
+  int wifiChan = (pinWifi0 != PIN_NOT_USED) ? wifiChans[dip.read()] : WIFI_CHANNEL;
+  WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   while (!WiFi.STA.started()) delay(100);
-  tx = new Tx(macRx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
+  tx = new Tx(macRx, wifiChan, WIFI_IF_STA, nullptr);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
   logger->printf("OpenRC4CL %s, Tx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
-                  OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+                  OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
   tx->wait4ThrHold();
 }
 

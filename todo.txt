@@ -1,5 +1,4 @@
 Todo:
-- class DipSwitch for max 4 pins
 - CLTimer: 
   Beeper warning signal N secs before starting engine
   Abort starting sequence and running with button
@@ -13,7 +12,6 @@ protype board:
 - mark servo and VBatt headers with heat-shrink tubing
 
 fase2:
-- use 2 dipswitches to select 4 different wifi channel nrs in Rx and Tx
 - new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
 - ?? add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
 - exponential throttle
@@ -30,12 +28,8 @@ fase2:
 - https://www.rcgroups.com/forums/showthread.php?1006124-Brushless-rpm-Sensor
 - hall sensor??
 - idea measure freq zero crossing
+- pcb https://fritzing.org/learning/tutorials/designing-pcb/
+  https://community.aisler.net/t/our-simple-pricing/102
 )
 
 Changed:
-- bugfix esc thr warning
-- added to class Throttle EscWarn to dis/en_able Esc throttle warning
-- added vbatt and low vbatt to telemetry, vbatt < low vbatt -> buzzer
-- added batt Tx and warning/error
-- added nr error in telemetry and logging for both Tx and Rx
-

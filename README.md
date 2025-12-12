@@ -1,9 +1,11 @@
 # OpenRC4CL
 
-Low-cost DIY project for expanding CL handles with RC functions like throttle control, servos, timers, telemetry and failsafe.
+Control Line (CL), also called U-Control, is a way of controlling model airplanes, see https://en.wikipedia.org/wiki/Control_line.
+
+Low-cost DIY project for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
 Uses the ESP-NOW protocol transmitted via the 2.4 GHz Wi-Fi band.
 
-Software is released under the MIT licence.
+The software is released as opensource under the MIT licence.
 
 Note this project is Work In Progress and is develloped for ESP32 C6, does not need external antenna.
 
@@ -58,6 +60,7 @@ Tx ESP32C6 inputs:
 - Tx lipo voltage monitor (1 cell lipo) (analog input)
 - max flight time (analog input potmeter)
 - select wifi chan (2 digital inputs for 2 position dipswitch)
+- deadband throttle correction (analog input potmeter)
 
 Tx ESP32C6 outputs:
 
@@ -83,6 +86,7 @@ Status codes for led and beeper (blink pulse in ms):
 - Ok = 0 (off)
 - WaitThrHold = 1000
 - WaitConnection = 2000
+- VBattLow and TxBattLow = 2000
 - EndFlight = 4000
 - Failsafe = 500
 - Error = 200

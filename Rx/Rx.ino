@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 7 December 2025
+Rx OpenRC4CL 12 December 2025
 
 MIT license
 
@@ -46,7 +46,9 @@ const int pinThrottle = A0;
 const int pinChan1 = PIN_NOT_USED;          // A1;                    
 const int pinChan2 = PIN_NOT_USED;          // A2;                    
 const int pinChan3 = PIN_NOT_USED;          // A4;  
-const int pinMaxTime = PIN_NOT_USED;        // A5;  
+const int pinMaxTime = PIN_NOT_USED;        // A5; 
+const int pinWifi0 = PIN_NOT_USED;          // D9;
+const int pinWifi1 = PIN_NOT_USED;          // D10;
 const int pinVBattLow = A1;                 // A5;  
 const int pinVBatt = A2;                    // A6;  
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
@@ -88,11 +90,11 @@ public:
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, lowVBatt.read(), vBatt.read(), rsi, timer.secondsLeft(), totalLost, errors};
+      struct Telemetry tel = {0, rc.id, vBatt.read(), lowVBatt.read(), rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      logger->printf("Rx:%s] thr:%d ch1:%d ch2:%d ch3:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d id:%d\n", 
+      logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d id:%d\n", 
                       status.str(), thrLast, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), 
                       maxSecs, totalLost, errors, rc.id);
       count = packetsLost = 0;
@@ -115,6 +117,7 @@ public:
         throttle.failsafe();
         chan1.failsafe(); chan2.failsafe(); chan3.failsafe();
         status.value = Status::Failsafe;
+        waitThrHold = true;                // reset from FailSafe with Th
         logger->printf("FAILSAFE!!!!\n");
         timeLastTx = now;                  // another test in FAILSAFE_TIME
       }
@@ -130,7 +133,7 @@ private:
   VoltageDiv vBatt{pinVBatt, lipoDivR1, lipoDivR2};
   Potmeter lowVBatt{pinVBattLow, 0, vBatt.max()}; 
   Status status{Status::WaitTxRx};
-  Led led{pinLed, status.pulse(), true};  // todo
+  Led led{pinLed, status.pulse(), true}; 
   bool connected = false, waitThrHold = true;
   unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
   int maxSecs = -1, thrLast = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0, errors = 0;
@@ -141,15 +144,18 @@ Rx *rx = 0; // initialisation must in setup
 void setup() {
   Serial.begin(115200);
   logger = new Logger(BLE_device_Rx, 120);
-  WiFi.mode(WIFI_STA); WiFi.setChannel(WIFI_CHANNEL);
-  rx = new Rx(macTx, WIFI_CHANNEL, WIFI_IF_STA, nullptr);
+  int pins_dip[] = {pinWifi0, pinWifi1};
+  DipSwitch dip(2, pins_dip);
+  int wifiChan = (pinWifi0 != PIN_NOT_USED) ? wifiChans[dip.read()] : WIFI_CHANNEL;
+  WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
+  rx = new Rx(macTx, wifiChan, WIFI_IF_STA, nullptr);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx->add_self())) {
     logger->printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
   logger->printf("OpenRC4CL %s, Rx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
-                  OpenRC4CL_VERSION, WIFI_CHANNEL, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+                  OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
 }
 
 void loop() {
