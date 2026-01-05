@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 12 December 2025
+TX OpenRC4CL 28 December 2025
 
 MIT license
 
@@ -46,7 +46,7 @@ const int pinRightCh1 = D5;
 const int pinLeftCh2 = D6;
 const int pinRightCh2 = D7;
 const int pinCh3 = PIN_NOT_USED;            // A2; 
-const int pinDeadBand = A2;                 // A4; 
+const int pinDeadBand = PIN_NOT_USED;       // A4; 
 const int pinBeep = D8;   
 const int pinWifi0 = D9;
 const int pinWifi1 = D10;
@@ -71,7 +71,7 @@ public:
     status.value = Status::WaitTxRx;
   }
   int readThrottle() {
-    throttle.setMinMax(TxMinPulse + deadBand.read());
+    if (pinDeadBand != PIN_NOT_USED) throttle.setMinMax(TxMinPulse + deadBand.read());
     return (hold.readPos() == Thr_Hold) ? TxThrottleHoldPulse : throttle.read();
   }
   void sendTx() {
@@ -85,13 +85,14 @@ public:
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {
     struct Telemetry tel = *(struct Telemetry *)data;
-    connected = true;
     if (CheckSum(tel) != tel.checkSum) { 
       status.value = Status::Error; errors++;
       logger->printf("[Tx:%s bat:%d thr:%d err:%d]\n", status.str(), txBatt.read(), readThrottle(), errors);
       return;
     }
-    bool txBattLow = (txBatt.read() < txBattLow);
+    connected = true;
+    int txV = txBatt.read();
+    bool txBattLow = (txV > 500) && (txV < txBattLow);  // tBatt ~ 0 if usb powered without lipo
     bool vBattLow = (tel.vBatLow > 0) && (tel.vBat < tel.vBatLow);
     bool eot = tel.time_left < warnEndFlight;
     if (!(endFlight = txBattLow || vBattLow || eot)) {
@@ -101,8 +102,8 @@ public:
       status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
     logger->printf("[Tx:%s bat:%d thr:%d dead:%d err:%d] [tele vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
-                   status.str(), txBatt.read(), readThrottle(), deadBand.read(), errors, tel.vBat, tel.vBatLow, tel.rsi, 
-                   tel.time_left, tel.totalLost, tel.errors, tel.id);
+                   status.str(), txBatt.read(), readThrottle(), (pinDeadBand != PIN_NOT_USED) ? deadBand.read() : 0, 
+                   errors, tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors, tel.id);
   }
   void statusUpdate() { 
     led.set(status.pulse()); led.update(); 

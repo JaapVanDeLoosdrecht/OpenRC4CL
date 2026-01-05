@@ -42,7 +42,8 @@ H = digital input with pullup R
 T = analog input
 
 4 pin audio   ---|---|---|--->
-               -   H   T   +
+function       -   H   T   +
+color		   B   R   Y   W
 			   
 NOTE: Thr Hold switch MUST be off when connecting!!??
 

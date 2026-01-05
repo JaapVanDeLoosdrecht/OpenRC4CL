@@ -1,5 +1,12 @@
 Todo:
+- move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
+- In tx_jaap.h rx_jaap.h  (or tx/rx_conf.h)
+TRAINER_CONFIG
+Mac adressen en pin consts etc
+FullConf
+Carier conf
 - CLTimer: 
+  Update to latest version of OpenRC4CL_util.h
   Beeper warning signal N secs before starting engine
   Abort starting sequence and running with button
 - softstart option for CLtimer and combat handle
@@ -12,10 +19,20 @@ protype board:
 - mark servo and VBatt headers with heat-shrink tubing
 
 fase2:
+- order 
+  - Tx lipos 
+  - combat engine, esc and props
+  - prop balancer
+  - longer CL lines
+  - 220/12/24V charger
+  - new balance board Junsi
+  - (balsa) wood for Limes racer
+- use state machine to keep track of status and actions
 - new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
 - ?? add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
 - exponential throttle
-- soft mac address
+- soft mac address for Rx (and Tx??)
+- add header for multi config per Tx, Rx and Timer
 - (paper display on TX)
 - use BT to send setting commands
 

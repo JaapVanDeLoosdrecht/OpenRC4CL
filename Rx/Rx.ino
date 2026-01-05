@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 12 December 2025
+Rx OpenRC4CL 28 December 2025
 
 MIT license
 
@@ -64,8 +64,8 @@ public:
     throttle.failsafe(); chan1.failsafe(); 
   }
   void command(struct TxData &rc, unsigned long now) {
-    if (!connected) { connected = true; timer.start(); status.value = Status::Ok; }  // timer can be reset using first minimal throttle command
     if (CheckSum(rc) == rc.checkSum) { 
+      if (!connected) { connected = true; timer.start(); status.value = Status::Ok; }  // timer can be reset using first minimal throttle command
       timeLastTx = now;
       if (rc.throttle == TxThrottleHoldPulse) {  
         if (pinMaxTime != PIN_NOT_USED) {    

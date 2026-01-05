@@ -7,7 +7,7 @@ Uses the ESP-NOW protocol transmitted via the 2.4 GHz Wi-Fi band.
 
 The software is released as opensource under the MIT licence.
 
-Note this project is Work In Progress and is develloped for ESP32 C6, does not need external antenna.
+Note this project is Work In Progress and is develloped for ESP32 C6, does not need external antennas.
 
 Feedback is welcome and I am open for ideas and/or colaboration.
 
@@ -39,7 +39,7 @@ Rx servo channels:
 
 Special functions:
 
-- check pairing Tx and Rx based on MAC address
+- check pairing Tx and Rx based on MAC address [planned soft MAC address]
 - checksum on transmitted data
 - failsafe if > 0.5 seconds connection lost OR TxBatt low:
   initiate throttle warning (like CLTimer) followed by stop engine and hold servos in last position
@@ -91,7 +91,7 @@ Status codes for led and beeper (blink pulse in ms):
 - Failsafe = 500
 - Error = 200
 
-## CLTimer 
+## CLTimer [planned]
 
 CLTimer is 'spinoff' project from components used for Tx and Rx projects in the OpenRC4CL repro.
 

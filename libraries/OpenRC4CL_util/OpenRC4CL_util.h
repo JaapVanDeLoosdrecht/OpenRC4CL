@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 12 December 2025
+Utils for OpenRC4CL 14 December 2025
 
 MIT license
 
@@ -33,7 +33,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.17";
+const char *OpenRC4CL_VERSION = "0.0.19"; 
 
 struct Status {	
   enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   Error };
