@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 14 December 2025
+Utils for OpenRC4CL 9 January 2026
 
 MIT license
 
@@ -33,12 +33,12 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.19"; 
+const char *OpenRC4CL_VERSION = "0.0.20"; 
 
 struct Status {	
-  enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   Error };
-  static inline const char* const  strTab[8] = { "Ok", "WaitThrHold", "WaitTxRx", "VBattLow", "TxBattLow", "EndFlight", "Failsafe", "Error" };
-  static constexpr const int pulseTab[8] =     {  0,    1000,          0,          2000,       2000,        2000,        500,        200 };
+  enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   WaitStart,   Error };
+  static inline const char* const  strTab[9] = { "Ok", "WaitThrHold", "WaitTxRx", "VBattLow", "TxBattLow", "EndFlight", "Failsafe", "WaitStart", "Error" };
+  static constexpr const int pulseTab[9] =     {  0,    1000,          0,          2000,       2000,        2000,        500,        1000,        200 };
   Status(StatusId s=Error) { value = s; }
   const int pulse() { return pulseTab[value]; }  // status blink pulse in us 
   const char* str() { return strTab[value]; }

@@ -1,5 +1,5 @@
 /* 
-CL Timer OpenRC4CL 16 November 2025
+CL Timer OpenRC4CL 9 January 2026
 
 MIT license
 
@@ -24,8 +24,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
 // CLtimer com7 white usb
 
-// NOTE this is WIP and lagging behind in maintance with Tx/Rx at the moment <----------------!!!!
-
 #include "OpenRC4CL_util.h"
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify BLE_device
 #ifndef SECRET
@@ -34,7 +32,7 @@ char *BLE_device_Timer = "Timer-OpenRC4CL";  // modify with your name
 
 
 const int maxFlight = 7*60;      // seconds
-const int warnEndFlight = 6;     // seconds before max
+const int warnEndFlight = 6;     // seconds before max 
 const int nrWarns = 2;           // numver of warnings
 
 const int pinLed = LED_BUILTIN;  // Note LED_BUILTIN is reversed on C6
@@ -56,14 +54,14 @@ public:
       if (abs(mt-maxSecs) > 5) { throttle.resetTimer(maxSecs = mt); }
       int thrM = maxThrottle.read();
       if (abs(thrM-thrValue) > 5) thrValue = thrM;
-      if (button.read()) { timer.start(maxSecs); start = true; led.set(StatusOk); header = "[Timer]"; }
+      if (button.read()) { timer.start(maxSecs); start = true; status.value = (Status::Ok); }
     } else {
       thr = throttle.writeTx(thrValue);
     }
-    if (timer.elapsed()) led.set(StatusEndFlight);
-    led.update();
+    if (timer.elapsed()) status.value = (Status::EndFlight);
+    led.set(status.pulse()); led.update(); 
     if (++count >= NR_COUNTS) {  
-      logger->printf("%s t:%d, thr:%d, thrV:%d, sec:%d\n", header, (start) ? maxSecs-timer.seconds() : 0, thr, thrValue, maxSecs);
+      logger->printf("%s t:%d, thr:%d, thrV:%d, sec:%d\n", status.str(), (start) ? maxSecs-timer.seconds() : 0, thr, thrValue, maxSecs);
       count = 0;
     }
   }
@@ -72,12 +70,12 @@ private:
   int maxSecs = maxFlight;
   Potmeter maxTime{pinMaxTime, 10, maxSecs};
   RcTimer timer{0};
-  Throttle throttle{pinThrottle, &timer, 0, maxSecs, warnEndFlight, nrWarns};
+  Throttle throttle{pinThrottle, &timer, 0, maxSecs, true, nrWarns, warnEndFlight};
   Potmeter maxThrottle{pinMaxThrottle, TxMinPulse, TxMaxPulse};
-  Led led{pinLed, StatusWaitStart, true};
-  bool start = false;
+  Status status{Status::WaitStart};
+  Led led{pinLed, status.pulse(), true};
+  bool s                                                                                                                                                                                                                                                                                                                                         tart = false;
   int thrValue = -1, count = -1;
-  char *header = "[Params]";
 };
 
 CLtimer *timer = 0;  // initialisation must in setup

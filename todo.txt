@@ -1,4 +1,6 @@
 Todo:
+- make better photos of protoboards and screenshot of BL logging
+- move .jpg to media directory
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
 - In tx_jaap.h rx_jaap.h  (or tx/rx_conf.h)
 TRAINER_CONFIG
@@ -50,3 +52,6 @@ fase2:
 )
 
 Changed:
+
+
+pcbway.com

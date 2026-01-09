@@ -5,11 +5,11 @@ Control Line (CL), also called U-Control, is a way of controlling model airplane
 Low-cost DIY project for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
 Uses the ESP-NOW protocol transmitted via the 2.4 GHz Wi-Fi band.
 
-The software is released as opensource under the MIT licence.
+The software is released as opensource under the MIT license.
 
-Note this project is Work In Progress and is develloped for ESP32 C6, does not need external antennas.
+Note this project is Work In Progress and is developed for ESP32 C6, does not need external antennas.
 
-Feedback is welcome and I am open for ideas and/or colaboration.
+Feedback is welcome and I am open to ideas and/or collaboration.
 
 ## Functional overview OpenRC4CL.
 
