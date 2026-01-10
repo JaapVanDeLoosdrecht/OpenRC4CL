@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 9 January 2026
+TX OpenRC4CL 10 January 2026
 
 MIT license
 
@@ -22,7 +22,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
-// Tx com5 black usb 
+// Tx com9 black usb 
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -35,8 +35,8 @@ char *BLE_device_Tx = "Tx-OpenRC4CL";                          // modify with yo
 #endif
 
 // user settings
-const int nrWarns = 2;                      // number if throttle warnings before stopping engine
-const int stopEngine = 1;                   // seconds to stop engine after last warning  TODO or do this manuanlly with TH??
+const int nrWarns = 3;                      // number beeps if Tx/RxBattLow and if timer is expired number throttle warnings before stopping engine
+const int stopEngine = 4;                   // if timer is expired number seconds to stop engine after last warning
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
@@ -90,27 +90,34 @@ public:
       logger->printf("[Tx:%s bat:%d thr:%d err:%d]\n", status.str(), txBatt.read(), readThrottle(), errors);
       return;
     }
-    connected = true;
-    int txV = txBatt.read();
-    bool txBattLow = (txV > 500) && (txV < txBattLow);  // tBatt ~ 0 if usb powered without lipo
     bool vBattLow = (tel.vBatLow > 0) && (tel.vBat < tel.vBatLow);
     bool eot = tel.time_left < warnEndFlight;
-    if (!(endFlight = txBattLow || vBattLow || eot)) {
+    if (!(endFlight = vBattLow || eot)) {
       status.value = Status::Ok;                                                                                                                                                                                              ;
       beepEndFlight = false; // needed if Rx is reset after end of flight
     } else {
       status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
-    logger->printf("[Tx:%s bat:%d thr:%d dead:%d err:%d] [tele vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
-                   status.str(), txBatt.read(), readThrottle(), (pinDeadBand != PIN_NOT_USED) ? deadBand.read() : 0, 
-                   errors, tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors, tel.id);
+    logger->printf("[Tx:%s bat:%d thr:%d dead:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
+                   status.str(), txBatt.read(), readThrottle(), (pinDeadBand != PIN_NOT_USED) ? deadBand.read() : 0, errors, 
+                   Status::val2str(tel.status), tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors, tel.id);
   }
   void statusUpdate() { 
+    if (!endFlight) {
+      int txV = txBatt.read();                             // Check txV here because Rx could be off and so no telemetry
+      if (endFlight = (txV > 500) && (txV < txBattLow)) {  // tBatt ~ 0 if usb powered without lipo
+        status.value = Status::TxBattLow;
+      }
+    }
     led.set(status.pulse()); led.update(); 
     if (endFlight) {
-      if (!beepEndFlight) { beep.set(status.pulse(), nrWarns); beepEndFlight = true; }  
+      if (!beepEndFlight) { 
+        beep.set(status.pulse(), nrWarns); 
+        beepEndFlight = true; 
+      }  
     } else {
-      beep.set(status.pulse());
+      int p = status.pulse();
+      beep.set((p == Status::Ok) ? p = -1 : p);            // no beep if Ok
     }
     beep.update(); 
   }

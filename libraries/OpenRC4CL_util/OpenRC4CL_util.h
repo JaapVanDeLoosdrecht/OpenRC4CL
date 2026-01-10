@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 9 January 2026
+Utils for OpenRC4CL 10 January 2026
 
 MIT license
 
@@ -33,23 +33,24 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
 
-const char *OpenRC4CL_VERSION = "0.0.20"; 
+const char *OpenRC4CL_VERSION = "0.0.21"; 
 
 struct Status {	
   enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   WaitStart,   Error };
   static inline const char* const  strTab[9] = { "Ok", "WaitThrHold", "WaitTxRx", "VBattLow", "TxBattLow", "EndFlight", "Failsafe", "WaitStart", "Error" };
   static constexpr const int pulseTab[9] =     {  0,    1000,          0,          2000,       2000,        2000,        500,        1000,        200 };
+  static const char* val2str(int val) { return strTab[val]; }  
   Status(StatusId s=Error) { value = s; }
   const int pulse() { return pulseTab[value]; }  // status blink pulse in us 
-  const char* str() { return strTab[value]; }
+  const char* str() { return val2str(value); }
   StatusId value;
 };
 
 struct TxData { int checkSum, id, throttle, chan1, chan2, chan3; }; 
 inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
 
-struct Telemetry { int checkSum, id, vBat, vBatLow, rsi, time_left, stop, totalLost, errors; };
-inline int CheckSum(struct Telemetry &t) { return t.id ^ t.vBat ^ t.vBatLow ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost ^ t.errors; }
+struct Telemetry { int checkSum, id, status, vBat, vBatLow, rsi, time_left, stop, totalLost, errors; };
+inline int CheckSum(struct Telemetry &t) { return t.id ^ t.status ^ t.vBat ^ t.vBatLow ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost ^ t.errors; }
 
 const int TxMinPulse = 1000;  // Tx pulses in us    todo class TxPulse::Min, etc
 const int TxMaxPulse = 2000;
@@ -88,7 +89,7 @@ private:
   BLESerial<> SerialBLE;
 };
 
-class Blink {  // base class Led/Beep, ms pulse width, 0 ms is always on ??? todo
+class Blink {  // base class Led/Beep, ms pulse width, 0 ms is always on, -1 ms is off
 public:
   Blink(int pin, int ms, bool inv, int rep) {   // Note LED_BUILTIN is reversed on C6
     _pin = pin; 
@@ -99,18 +100,18 @@ public:
   void set(int ms, int rep=0) { _ms = ms; _rep = rep; count = 0; active = false; } 
   void update() {
 	if (_pin == PIN_NOT_USED) return;
-	// if (_pin == D8 && _rep > 1) Serial.printf("[Blink] pin:%d, ms:%d, active:%d, rep:%d, count:%d, on:%d, off:%d\n", _pin, _ms, active, _rep, count, on, off);
     if ((_rep == 0) || (count <= _rep)) {
       if (_ms != 0) {
         bool s = (millis() % _ms < _ms / 2);
         if ((s != active) && s) count++;
         active = ((count <= _rep) || (_rep == 0)) ? s : false;
       } else {
-        active = false;
+        active = true;
       }
     } else {
       active = false;
     }
+	// if (_pin == D8) Serial.printf("[Blink] pin:%d, ms:%d, active:%d, rep:%d, count:%d, on:%d, off:%d\n", _pin, _ms, active, _rep, count, on, off);
     digitalWrite(_pin, active ? on : off);  
   }
 private:
@@ -118,12 +119,12 @@ private:
   bool active, on, off;
 };
 
-class Led : public Blink {  // status blink led in ms pulse width, 0 ms is always on
+class Led : public Blink {  // status blink led in ms pulse width, 0 ms is always on, -1 ms is off
 public:
   Led(int pin, int ms, int inv=false, int rep=0): Blink(pin, ms, inv, rep) {}
 };
 
-class Beep : public Blink {  // status beeper in ms pulse width, 0 ms is always on
+class Beep : public Blink {  // status beeper in ms pulse width, 0 ms is always on, -1 ms is off
 public:
   Beep(int pin, int ms, int inv=false, int rep=1): Blink(pin, ms, inv, rep) {}
 };

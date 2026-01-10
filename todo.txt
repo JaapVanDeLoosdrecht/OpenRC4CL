@@ -1,6 +1,5 @@
 Todo:
 - make better photos of protoboards and screenshot of BL logging
-- move .jpg to media directory
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
 - In tx_jaap.h rx_jaap.h  (or tx/rx_conf.h)
 TRAINER_CONFIG
@@ -19,6 +18,7 @@ Carier conf
 
 protype board:
 - mark servo and VBatt headers with heat-shrink tubing
+- possible PCB producer pcbway.com
 
 fase2:
 - order 
@@ -52,6 +52,8 @@ fase2:
 )
 
 Changed:
+Added Rx Status to Telemetry
+Bug fix status led for Status:Ok
+Bug fix beeper for status Ok
+moved .jpg to photo directory
 
-
-pcbway.com

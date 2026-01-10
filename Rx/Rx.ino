@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 9 January 2026
+Rx OpenRC4CL 10 January 2026
 
 MIT license
 
@@ -35,7 +35,7 @@ char *BLE_device_Rx = "Rx-OpenRC4CL";                           // modify with y
 #endif
 
 // user settings
-const int maxFlight = 8*60;                 // seconds, if maxTime is not in used. Note in general
+const int maxFlight = 10*60;                 // seconds, if maxTime is not in used.
 const int nrWarns = 2;                      // number if throttle warnings before stopping engine
 const int stopEngine = 1;                   // nr of secs to stop engine after last warning
 const bool escWarning = false;              // if true issue Esc warning of end of flight
@@ -90,7 +90,7 @@ public:
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, vBatt.read(), lowVBatt.read(), rsi, timer.secondsLeft(), totalLost, errors};
+      struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), lowVBatt.read(), rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
@@ -156,6 +156,7 @@ void setup() {
   }
   logger->printf("OpenRC4CL %s, Rx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
                   OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+  logger->printf("Waiting to connect to Tx\n"); 
 }
 
 void loop() {
