@@ -1,3 +1,24 @@
+Idea to reduce complexity of PCB:
+- move setting params (like instel potmeters and dipswitches) to permanent flash memory
+See https://docs.espressif.com/projects/arduino-esp32/en/latest/api/preferences.html
+Example:
+#include <Preferences.h>
+Preferences preferences;
+void setup() {
+  Serial.begin(115200);
+  // Open Preferences with namespace "counter" in RW mode
+  preferences.begin("counter", false);
+  // Read counter, default to 0 if not exists
+  unsigned int counter = preferences.getUInt("counter", 0);
+  counter++;
+  Serial.printf("Current counter value: %u\n", counter);
+  // Store the counter value
+  preferences.putUInt("counter", counter);
+  // Close the Preferences
+  preferences.end();
+}
+void loop() {}
+
 Todo:
 - make better photos of protoboards and screenshot of BL logging
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
@@ -6,15 +27,18 @@ TRAINER_CONFIG
 Mac adressen en pin consts etc
 FullConf
 Carier conf
+- test using BT commands with flashing params instead of using instel-pots
+  results in smaller footprint PCB
 - CLTimer: 
   Update to latest version of OpenRC4CL_util.h
   Beeper warning signal N secs before starting engine
   Abort starting sequence and running with button
-- softstart option for CLtimer and combat handle
+- softstart option for CLtimer and combat handle (= startup ramp %)
   rampup time if starting from zero
 - first use powerbank as powersupply for Tx, replace later with lipo
 - first Tx test on combat handle with killswitch and throttle dail on top of handle
 - sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
+- move repro to https://codeberg.org/??
 
 protype board:
 - mark servo and VBatt headers with heat-shrink tubing
@@ -52,8 +76,4 @@ fase2:
 )
 
 Changed:
-Added Rx Status to Telemetry
-Bug fix status led for Status:Ok
-Bug fix beeper for status Ok
-moved .jpg to photo directory
 

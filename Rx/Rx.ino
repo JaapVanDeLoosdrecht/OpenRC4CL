@@ -3,7 +3,7 @@ Rx OpenRC4CL 10 January 2026
 
 MIT license
 
-Copyright 2025 Jaap van de Loosdrecht
+Copyright 2026 Jaap van de Loosdrecht
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
 documentation files (the “Software”), to deal in the Software without restriction, 
