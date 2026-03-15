@@ -1,4 +1,47 @@
-Pin usage
+Pin usage NVS, note extra chan4 needed in com protocol
+Idea: first make generic PCB for Throttle and Chan1 only
+
+Rx:
+- LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
+- A0: throttle (output servo)
+- A1: chan1 (output servo)
+- A2: 8S lipo voltage monitor (input)
+- D3:             (=A3?, does this exists? GPIO21? =(D3))
+- D4:             (beeper (output))
+- D5
+- D6
+- D7
+- D8
+- D9: 
+- D10: External led (optional)
+- A4: chan2 (optional, output servo)
+- A5: chan3 (optional, output servo)
+- A6: chan4 (optional, output servo)
+- GPIO7:
+NVS: wifiChan, low VBatt warning voltage, timer setting
+
+Tx:
+- LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
+- A0: throttle (input potmeter)
+- A1: 
+- A2: Tx lipo voltage monitor (1 cell lipo) (input)
+- D3: throttle hold (input switch)
+- D4: beeper (output)
+- D5: leftCh1  (input 3-pos switch)
+- D6: rightCh1 (input 3-pos switch)
+- D7: leftCh2  (optional, input 3-pos switch)
+- D8: rightCh2 (optional, input 3-pos switch)
+- D9: 
+- D10: External led (optional)
+- A4: 
+- A5: chan3 (optional, input potmeter)
+- A6: chan4 (optional, input potmeter)
+- GPIO7:
+NVS: wifiChan and deadband throttle
+
+
+-----------------------------------------------------------------------
+Pin usage old
 
 Rx:
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6

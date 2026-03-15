@@ -2,23 +2,23 @@
 
 #include <nvs_flash.h>
 #include <Preferences.h>
-// #include "OpenRC4CL_util.h"
-#include <BLESerial.h>  // use Serial Bluetooth Terminal App (Google play)
+#include "OpenRC4CL_util.h"
+// #include <BLESerial.h>  // use Serial Bluetooth Terminal App (Google play)  #### ADD this comment to Rx, Tx and Timer code
 
 // NOTE Logger has been changed!!!! <-------------- !!!
-class Logger {  // log msgs to both Serial and SerialBLE
-public:
-  Logger(BLESerial<>* ble, int max_buf = 80) { SerialBLE = ble; _max_buf = max_buf; _buf = new char[_max_buf]; }
-  void printf(const char* format, ...) {
-    va_list args; va_start(args, format);
-    vsnprintf(_buf, _max_buf, format, args);
-    va_end(args);
-    Serial.print(_buf); SerialBLE->print(_buf); SerialBLE->flush();
-  }
-private:
-  char *_buf = 0; int _max_buf;
-  BLESerial<>* SerialBLE;
-};
+// class Logger {  // log msgs to both Serial and SerialBLE
+// public:
+//   // Logger(BLESerial<>* ble, int max_buf = 80) { SerialBLE = ble; _max_buf = max_buf; _buf = new char[_max_buf]; }
+//   Logger(int max_buf = 120) { _max_buf = max_buf; _buf = new char[_max_buf]; }
+//   void printf(const char* format, ...) {
+//     va_list args; va_start(args, format);
+//     vsnprintf(_buf, _max_buf, format, args);
+//     va_end(args);
+//     Serial.print(_buf); SerialBLE.print(_buf); SerialBLE.flush();
+//   }
+// private:
+//   char *_buf = 0; int _max_buf;
+// };
 
 // Non_Volatile_Storage
 struct NVS_elm { char* name; int& param; }; 
@@ -47,7 +47,7 @@ public:
   }
 private:
   NVS_elm* getElm(char * name) { 
-    for (int i = 0; i < nr_params; i++) if (not strcmp_P(name, tab[i].name)) return &tab[i];
+    for (int i = 0; i < nr_params; i++) if (! strcmp_P(name, tab[i].name)) return &tab[i];
     log->printf("Unknown NVS param name:%d", name);
     return 0;
   }
@@ -64,16 +64,14 @@ static void nvs_erase() {  // erase the NVS partition
 }
 
 // - todo only edit if before disable Throttle Hold
-// disable list passwd in nvs echo passwd to Serial only at startup
 class CMD { // command interpreter
   public:
-    CMD(const int nr_ps, NVS_elm* nvs_tab, BLESerial<>* ble, Logger *logger) { 
+    CMD(const int nr_ps, NVS_elm* nvs_tab, Logger *logger) { 
       tab = nvs_tab; 
       nr_params = nr_ps;
-      SerialBLE = ble;
       log = logger;
       nvs = new NVS(nr_params, nvs_tab, log); 
-      Serial.printf("passwd=%d\n", nvs->read(PSTR("passwd"))); // log passwd to console only!
+      Serial.printf("passwd=%d\n", nvs->read(PSTR("passwd"))); // Note log passwd to console only!
       log->printf("password\n");
     }
     void exec(char *cmdline) {
@@ -89,14 +87,14 @@ class CMD { // command interpreter
         log->printf("%s=%d\n", cmdline, nvs->read(cmdline));
       } else if (strcmp_P(cmd, PSTR("list")) == 0) {
         const int maxp = 10;
-        for (int i = 0; i < nr_params; i++) {  // todo exclude passwd, print passwd at startup to console
-          log->printf("%s=%d ", tab[i].name, tab[i].param);
-          if (((i > 0) and ((i % maxp) == 0)) or (i == nr_params-1)) log->printf("\n");
+        for (int i = 0; i < nr_params; i++) {
+          if (strcmp_P(tab[i].name, PSTR("passwd"))) log->printf("%s=%d ", tab[i].name, tab[i].param);
+          if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
         }
       } else if (strcmp_P(cmd, PSTR("help")) == 0) {
         log->printf("set param value\nget param\nhelp\nversion\n");
       } else if (strcmp_P(cmd, PSTR("version")) == 0) {
-        log->printf("%s\n", "0.0.1"); // todo OpenRC4CL_VERSION);
+        log->printf("%s\n", "0.0.1"); // #############  todo OpenRC4CL_VERSION);
       } else {
         log->printf("Unknown command:%s\n", cmd);
       }
@@ -104,11 +102,8 @@ class CMD { // command interpreter
     void update() {
       int data;
       bool read = false;
-      if (SerialBLE->available()) { 
-        data = SerialBLE->read(); read = true; 
-      } else if (Serial.available()) {
-        data = Serial.read(); read = true; 
-      }
+      if (SerialBLE.available()) { data = SerialBLE.read(); read = true; } 
+      else if (Serial.available()) { data = Serial.read(); read = true; }
       if (read) {
         if (data == '\r') {
             buffer[length] = '\0';     // properly terminate the string
@@ -127,7 +122,6 @@ class CMD { // command interpreter
     NVS_elm* tab;
     int nr_params;
     NVS* nvs;
-    BLESerial<>* SerialBLE;
     Logger *log;
 };
 int p1 = 11;
@@ -135,14 +129,13 @@ int p2 = 22;
 int passwd = 123;
 const int nr_params = 3;
 NVS_elm nvs_tab[nr_params] = { NVS_ELM(passwd), NVS_ELM(p1), NVS_ELM(p2) };
-BLESerial<> SerialBLE;  
 Logger *logger;
 CMD* cmd;
 void setup() {
     Serial.begin(115200);
     SerialBLE.begin("JL_TEST"); 
-    logger = new Logger(&SerialBLE, 120);
-    cmd = new CMD(nr_params, nvs_tab, &SerialBLE, logger);
+    logger = new Logger;
+    cmd = new CMD(nr_params, nvs_tab, logger);
 }
 void loop() {
   cmd->update();

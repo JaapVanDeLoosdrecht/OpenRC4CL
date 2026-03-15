@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 10 January 2026
+Rx OpenRC4CL 15 March 2026
 
 MIT license
 
@@ -22,7 +22,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
-// RX com7 white usb
+// RX com7 black usb
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -143,7 +143,8 @@ Rx *rx = 0; // initialisation must in setup
 
 void setup() {
   Serial.begin(115200);
-  logger = new Logger(BLE_device_Rx, 120);
+  SerialBLE.begin(BLE_device_Rx); 
+  logger = new Logger;
   int pins_dip[] = {pinWifi0, pinWifi1};
   DipSwitch dip(2, pins_dip);
   int wifiChan = (pinWifi0 != PIN_NOT_USED) ? wifiChans[dip.read()] : WIFI_CHANNEL;
@@ -154,8 +155,8 @@ void setup() {
     logger->printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("OpenRC4CL %s, Rx channel:%d, MAC Address:%s, ESP-NOW version:%d\n", 
-                  OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str(), ESP_NOW.getVersion());
+  logger->printf("OpenRC4CL %s, Rx channel:%d, MAC Address:%s\n", 
+                  OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str());
   logger->printf("Waiting to connect to Tx\n"); 
 }
 

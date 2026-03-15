@@ -1,25 +1,8 @@
-Idea to reduce complexity of PCB:
-- move setting params (like instel potmeters and dipswitches) to permanent flash memory
-See https://docs.espressif.com/projects/arduino-esp32/en/latest/api/preferences.html
-Example:
-#include <Preferences.h>
-Preferences preferences;
-void setup() {
-  Serial.begin(115200);
-  // Open Preferences with namespace "counter" in RW mode
-  preferences.begin("counter", false);
-  // Read counter, default to 0 if not exists
-  unsigned int counter = preferences.getUInt("counter", 0);
-  counter++;
-  Serial.printf("Current counter value: %u\n", counter);
-  // Store the counter value
-  preferences.putUInt("counter", counter);
-  // Close the Preferences
-  preferences.end();
-}
-void loop() {}
-
 Todo:
+- only edit NVS if before disable Throttle Hold
+- Move instelpot and DipSwitch functions to NVS
+- Adapt pin mapping to new schema
+- add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
 - make better photos of protoboards and screenshot of BL logging
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
 - In tx_jaap.h rx_jaap.h  (or tx/rx_conf.h)
@@ -27,8 +10,6 @@ TRAINER_CONFIG
 Mac adressen en pin consts etc
 FullConf
 Carier conf
-- test using BT commands with flashing params instead of using instel-pots
-  results in smaller footprint PCB
 - CLTimer: 
   Update to latest version of OpenRC4CL_util.h
   Beeper warning signal N secs before starting engine
@@ -76,4 +57,9 @@ fase2:
 )
 
 Changed:
+- added classes CMD and NVS
+- declare SerialBLE as global variable (like Serial) in OpenRC4CL_util.h and simplify code
+- changed Logger to use global SerialBLE
+- flash and test last working version to breadboard Tx an Rx
+- Update all code to use new class Logger
 
