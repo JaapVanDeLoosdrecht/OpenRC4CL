@@ -1,11 +1,11 @@
 Todo:
-- only edit NVS if before disable Throttle Hold
-- Move instelpot and DipSwitch functions to NVS
 - Adapt pin mapping to new schema
+- bug Rx= EndOfFlight -> TX give TxBatLow
 - add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
+- add strings as NVS type for macaddress and BLE dev name etc
+  NOTE macaddress is hex
 - make better photos of protoboards and screenshot of BL logging
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
-- In tx_jaap.h rx_jaap.h  (or tx/rx_conf.h)
 TRAINER_CONFIG
 Mac adressen en pin consts etc
 FullConf
@@ -21,7 +21,8 @@ Carier conf
 - sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
 - move repro to https://codeberg.org/??
 
-protype board:
+protype board V2 or PCB:
+- 3 chans (Esc, TH and servo for hook carrier)
 - mark servo and VBatt headers with heat-shrink tubing
 - possible PCB producer pcbway.com
 
@@ -34,6 +35,9 @@ fase2:
   - 220/12/24V charger
   - new balance board Junsi
   - (balsa) wood for Limes racer
+- Tx for all chans add 
+  - offset middle position
+  - min and max value
 - use state machine to keep track of status and actions
 - new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
 - ?? add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
@@ -57,9 +61,7 @@ fase2:
 )
 
 Changed:
-- added classes CMD and NVS
-- declare SerialBLE as global variable (like Serial) in OpenRC4CL_util.h and simplify code
-- changed Logger to use global SerialBLE
-- flash and test last working version to breadboard Tx an Rx
-- Update all code to use new class Logger
-
+- added Cmds default, reboot and lock
+- add min and max values to NVS param config
+- make CMDs more robust, like set param <no value> or illegal string for int, etc
+- extended to 5 chans

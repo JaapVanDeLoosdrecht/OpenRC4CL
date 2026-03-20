@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 15 March 2026
+Rx OpenRC4CL 20 March 2026
 
 MIT license
 
@@ -26,29 +26,27 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <MacAddress.h>
 #include <WiFi.h>
+#include <limits.h>
 #include "OpenRC4CL_util.h"
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
 #ifndef SECRET
-#define WIFI_CHANNEL 6
 const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with your mac address of Tx
 char *BLE_device_Rx = "Rx-OpenRC4CL";                           // modify with your name
 #endif
 
 // user settings
-const int maxFlight = 10*60;                 // seconds, if maxTime is not in used.
+const int maxFlight = 10*60;                // seconds, if maxTime is not in used.
 const int nrWarns = 2;                      // number if throttle warnings before stopping engine
 const int stopEngine = 1;                   // nr of secs to stop engine after last warning
 const bool escWarning = false;              // if true issue Esc warning of end of flight
-const int minThrottle = TxMidPulse;         // min trhottle value to start timer, 0 = no restart timer 
+const int minThrottle = TxMidPulse;         // min throttle value to start timer, 0 = no restart timer 
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinChan1 = PIN_NOT_USED;          // A1;                    
 const int pinChan2 = PIN_NOT_USED;          // A2;                    
 const int pinChan3 = PIN_NOT_USED;          // A4;  
-const int pinMaxTime = PIN_NOT_USED;        // A5; 
-const int pinWifi0 = PIN_NOT_USED;          // D9;
-const int pinWifi1 = PIN_NOT_USED;          // D10;
+const int pinChan4 = PIN_NOT_USED;          // A4;  
 const int pinVBattLow = A1;                 // A5;  
 const int pinVBatt = A2;                    // A6;  
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
@@ -56,6 +54,18 @@ const int lipoDivR2 = 100000;               // R2 lipo voltage divider
 // system
 const int NR_PACKETS = 50;                  // nr packets for telemetry and logging
 const unsigned long FAILSAFE_TIME = 500;    // ms
+// user settings (NVS params)
+int passwd = 123;
+int wifiChan = 6;                           // [1..13]
+int maxTime = maxFlight;                    // change needs reboot
+// NVS config
+const int nr_nvs_params = 3;                // note can NOT be dynamic
+NVS_elm nvs_tab[nr_nvs_params] = { 
+  NVS_ELM(passwd, 0, INT_MAX), 
+  NVS_ELM(wifiChan, 1, 13),
+  NVS_ELM(maxTime, 10, maxFlight),
+};
+// global vars
 Logger *logger = 0; 
 
 class Rx : public RcPeer {  
@@ -67,15 +77,9 @@ public:
     if (CheckSum(rc) == rc.checkSum) { 
       if (!connected) { connected = true; timer.start(); status.value = Status::Ok; }  // timer can be reset using first minimal throttle command
       timeLastTx = now;
-      if (rc.throttle == TxThrottleHoldPulse) {  
-        if (pinMaxTime != PIN_NOT_USED) {    
-          int mt = maxTime.read();
-          if (abs(mt-maxSecs) > 5) throttle.resetTimer(maxSecs = mt);  // only modify max time if TH 
-        }
-        waitThrHold = false;  // wait for (first) TH at start Rx
-      }
+      if (rc.throttle == TxThrottleHoldPulse) waitThrHold = false;  // wait for (first) TH at start Rx
       thrLast = throttle.writeTx(waitThrHold ? throttle.failSaveValue() : rc.throttle);
-      chan1.writeTx(rc.chan1); chan2.writeTx(rc.chan2); chan3.writeTx(rc.chan3);
+      chan1.writeTx(rc.chan1); chan2.writeTx(rc.chan2); chan3.writeTx(rc.chan3); chan4.writeTx(rc.chan4);
       if (rc.id < 100) {  // new Tx 
         timer.start(); status.value = Status::Ok;
         packetsLost = 0; lastId = -1; count = -1; 
@@ -94,8 +98,8 @@ public:
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d id:%d\n", 
-                      status.str(), thrLast, rc.chan1,  rc.chan2,  rc.chan3, avg_time, rsi, timer.secondsLeft(), 
+      logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d id:%d\n", 
+                      status.str(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, timer.secondsLeft(), 
                       maxSecs, totalLost, errors, rc.id);
       count = packetsLost = 0;
       timeLast1st = now;
@@ -125,11 +129,11 @@ public:
   }
 private:
   RcTimer timer{maxFlight};
-  Throttle throttle{pinThrottle, &timer, minThrottle, maxFlight, escWarning, nrWarns, stopEngine};
-  Potmeter maxTime{pinMaxTime, 10, maxFlight}; 
+  Throttle throttle{pinThrottle, &timer, minThrottle, maxTime, escWarning, nrWarns, stopEngine};
   RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan2{pinChan2, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan3{pinChan3, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan4{pinChan4, TxMinPulse, TxMaxPulse, 0, -1};
   VoltageDiv vBatt{pinVBatt, lipoDivR1, lipoDivR2};
   Potmeter lowVBatt{pinVBattLow, 0, vBatt.max()}; 
   Status status{Status::WaitTxRx};
@@ -140,14 +144,13 @@ private:
 };
 
 Rx *rx = 0; // initialisation must in setup 
+CMD* cmd = 0;
 
 void setup() {
   Serial.begin(115200);
   SerialBLE.begin(BLE_device_Rx); 
   logger = new Logger;
-  int pins_dip[] = {pinWifi0, pinWifi1};
-  DipSwitch dip(2, pins_dip);
-  int wifiChan = (pinWifi0 != PIN_NOT_USED) ? wifiChans[dip.read()] : WIFI_CHANNEL;
+  cmd = new CMD(nr_nvs_params, nvs_tab, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   rx = new Rx(macTx, wifiChan, WIFI_IF_STA, nullptr);
   while (!WiFi.STA.started()) delay(100);
@@ -163,4 +166,5 @@ void setup() {
 void loop() {
   rx->checkFailsafe();
   rx->statusUpdate();
+  cmd->update();  // todo lower freq like 5 hz??
 }

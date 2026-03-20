@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 15 March 2026
+Utils for OpenRC4CL 20 March 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.0"; 
+const char *OpenRC4CL_VERSION = "0.1.1"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -51,8 +51,8 @@ struct Status {
   StatusId value;
 };
 
-struct TxData { int checkSum, id, throttle, chan1, chan2, chan3; }; 
-inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3; } 
+struct TxData { int checkSum, id, throttle, chan1, chan2, chan3, chan4; }; 
+inline int CheckSum(struct TxData &d) { return d.id ^ d.throttle ^ d.chan1 ^ d.chan2 ^ d.chan3 ^ d.chan4; } 
 
 struct Telemetry { int checkSum, id, status, vBat, vBatLow, rsi, time_left, stop, totalLost, errors; };
 inline int CheckSum(struct Telemetry &t) { return t.id ^ t.status ^ t.vBat ^ t.vBatLow ^ t.rsi ^ t.time_left ^ t.stop ^ t.totalLost ^ t.errors; }
@@ -62,8 +62,6 @@ const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
-
-const int wifiChans[] = {1, 6, 11 ,13};  // wifi chans for selecting with 2 pos dipswitch
 
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   if (pin == PIN_NOT_USED) return 0; 
@@ -290,8 +288,8 @@ private:
 };
 
 // Non Volatile Storage
-struct NVS_elm { char* name; int& param; }; 
-#define NVS_ELM(p) {PSTR(#p), p}
+struct NVS_elm { char* name; int& param; int init; int min; int max; }; 
+#define NVS_ELM(p, min, max) {PSTR(#p), p, p, min, max}
 class NVS {  
 public:
   NVS(const int nr_ps, NVS_elm* nvs_tab, Logger *logger) { 
@@ -299,25 +297,37 @@ public:
     nr_params = nr_ps;
     log = logger;
     pref.begin(nmspace, true);  // readonly, initialse from eprom or use default from table
-    for (int i = 0; i < nr_params; i++) tab[i].param = pref.getInt(tab[i].name, tab[i].param);
+    for (int i = 0; i < nr_params; i++) tab[i].param = pref.getInt(tab[i].name, tab[i].init);
+    pref.end();
+  }
+  void reset() {  // reset to compile time default values
+    pref.begin(nmspace, false);  // read/write
+    for (int i = 0; i < nr_params; i++) {
+	  pref.putInt(tab[i].name, tab[i].init);
+	  tab[i].param = tab[i].init;
+	}
     pref.end();
   }
   int read(char* name) {
     NVS_elm* elm = getElm(name);
-    if (elm != 0) return elm->param; else 0; 
+    return (elm) ? elm->param : 0; 
   }
   void write(char* name, int value) { 
     NVS_elm* elm = getElm(name);
     if (elm == 0) return;
+	if ((value < elm->min) || (value > elm->max)) {
+	  log->printf("Error: value must be in range %d..%d\n", elm->min, elm->max);
+      return;
+	}
     pref.begin(nmspace, false);  // read/write
     pref.putInt(elm->name, value);
     elm->param = value;
     pref.end();
   }
 private:
-  NVS_elm* getElm(char * name) { 
-    for (int i = 0; i < nr_params; i++) if (! strcmp_P(name, tab[i].name)) return &tab[i];
-    log->printf("Unknown NVS param name:%d", name);
+  NVS_elm* getElm(char *name) { 
+    for (int i = 0; i < nr_params; i++) if (strcmp_P(name, tab[i].name) == 0) return &tab[i];
+    log->printf("Unknown NVS param name:%s\n", name);
     return 0;
   }
   char* nmspace = PSTR("OpenRC4CL");
@@ -346,23 +356,29 @@ class CMD { // CoMmanD interpreter
       char *cmd = strsep(&cmdline, " ");
       if (not chk_passwd) {
         chk_passwd = nvs->read(PSTR("passwd")) == atoi(cmd); 
-        if (not chk_passwd) log->printf("password\n");
-      } else if (strcmp_P(cmd, PSTR("set")) == 0) {
+        (chk_passwd) ? listCmd() : log->printf("invalid password!\n");
+      } else if (!strcmp_P(cmd, PSTR("lock"))) {
+		chk_passwd = false;
+      } else if (!strcmp_P(cmd, PSTR("set"))) {
         char* param = strsep(&cmdline, " ");
+		if (!param || !is_digits(cmdline)) { log->printf("invalid command\n"); return; }
         int val = atoi(cmdline);
         nvs->write(param, val);
-      } else if (strcmp_P(cmd, PSTR("get")) == 0) {
+        log->printf("%s=%d\n", param, val);
+      } else if (!strcmp_P(cmd, PSTR("get"))) {
+		if (!cmdline) { log->printf("invalid command\n"); return; }
         log->printf("%s=%d\n", cmdline, nvs->read(cmdline));
-      } else if (strcmp_P(cmd, PSTR("list")) == 0) {
-        const int maxp = 10;
-        for (int i = 0; i < nr_params; i++) {
-          if (strcmp_P(tab[i].name, PSTR("passwd"))) log->printf("%s=%d ", tab[i].name, tab[i].param);
-          if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
-        }
-      } else if (strcmp_P(cmd, PSTR("help")) == 0) {
-        log->printf("set param value\nget param\nhelp\nversion\n");
-      } else if (strcmp_P(cmd, PSTR("version")) == 0) {
+      } else if (!strcmp_P(cmd, PSTR("list"))) {
+		listCmd();
+      } else if (!strcmp_P(cmd, PSTR("help"))) {
+        log->printf(PSTR("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n"));
+      } else if (!strcmp_P(cmd, PSTR("version"))) {
         log->printf("%s\n", OpenRC4CL_VERSION);
+      } else if (!strcmp_P(cmd, PSTR("default"))) {
+		nvs->reset();
+		listCmd();
+      } else if (!strcmp_P(cmd, PSTR("reboot"))) {
+		ESP.restart();
       } else {
         log->printf("Unknown command:%s\n", cmd);
       }
@@ -383,6 +399,22 @@ class CMD { // CoMmanD interpreter
       }
     }
   private:
+    bool is_digits(const char *s) {
+	  while(isspace((unsigned char)*s)) s++;
+      if (!s || !(*s)) return false;
+      while (*s) {
+        if (!isdigit((unsigned char)*s)) return false;
+        s++;
+      }
+      return true;
+	}
+    void listCmd() {
+      const int maxp = 10;
+      for (int i = 0; i < nr_params; i++) {
+        if (strcmp_P(tab[i].name, PSTR("passwd"))) log->printf("%s=%d ", tab[i].name, tab[i].param);
+        if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
+      }
+	}
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];
     int length = 0;  // length of line received so far

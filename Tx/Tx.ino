@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 15 March 2026
+TX OpenRC4CL 20 March 2026
 
 MIT license
 
@@ -26,17 +26,18 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <MacAddress.h>
 #include <WiFi.h>
+#include <limits.h>
 #include "OpenRC4CL_util.h"  
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
 #ifndef SECRET
-#define WIFI_CHANNEL 6
 const MacAddress macRx({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with your mac address of Rx
 char *BLE_device_Tx = "Tx-OpenRC4CL";                          // modify with your name
 #endif
 
-// user settings
+// to user settings to be moved to NVS params, will need reboot
 const int nrWarns = 3;                      // number beeps if Tx/RxBattLow and if timer is expired number throttle warnings before stopping engine
 const int stopEngine = 4;                   // if timer is expired number seconds to stop engine after last warning
+const int txBattLow = 3500;                 // min voltage for Tx lipo
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
@@ -46,18 +47,26 @@ const int pinRightCh1 = D5;
 const int pinLeftCh2 = D6;
 const int pinRightCh2 = D7;
 const int pinCh3 = PIN_NOT_USED;            // A2; 
-const int pinDeadBand = PIN_NOT_USED;       // A4; 
+const int pinCh4 = PIN_NOT_USED;            // A2; 
 const int pinBeep = D8;   
-const int pinWifi0 = D9;
-const int pinWifi1 = D10;
 const int pinVBatt = A1;                      
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
 const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 // system
-const int txBattLow = 3500;                 // min voltage for Tx lipo
 const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no overleap with TH
-const int deadBandMin = -deadBandMax;              
-
+const int deadBandMin = -deadBandMax;    
+// user settings (NVS params)
+int passwd = 123;
+int wifiChan = 6;                           // [1..13]
+int deadBand = 0;                           // for TH low
+// NVS config
+const int nr_nvs_params = 3;                // note can NOT be dynamic
+NVS_elm nvs_tab[nr_nvs_params] = { 
+  NVS_ELM(passwd, 0, INT_MAX), 
+  NVS_ELM(wifiChan, 1, 13), 
+  NVS_ELM(deadBand, deadBandMin, deadBandMax),
+};
+// global vars
 Logger *logger = 0; 
 
 class Tx : public RcPeer {
@@ -71,11 +80,11 @@ public:
     status.value = Status::WaitTxRx;
   }
   int readThrottle() {
-    if (pinDeadBand != PIN_NOT_USED) throttle.setMinMax(TxMinPulse + deadBand.read());
+    throttle.setMinMax(TxMinPulse + deadBand);  // deadBand can be changed by CMD
     return (hold.readPos() == Thr_Hold) ? TxThrottleHoldPulse : throttle.read();
   }
   void sendTx() {
-    struct TxData rc{0, ++id, readThrottle(), chan1.read(), chan2.read(), chan3.read()}; 
+    struct TxData rc{0, ++id, readThrottle(), chan1.read(), chan2.read(), chan3.read(), chan4.read()}; 
     rc.checkSum = CheckSum(rc);
     if (send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
       lastId = id;
@@ -98,8 +107,8 @@ public:
     } else {
       status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
-    logger->printf("[Tx:%s bat:%d thr:%d dead:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
-                   status.str(), txBatt.read(), readThrottle(), (pinDeadBand != PIN_NOT_USED) ? deadBand.read() : 0, errors, 
+    logger->printf("[Tx:%s bat:%d thr:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
+                   status.str(), txBatt.read(), readThrottle(), errors, 
                    Status::val2str(tel.status), tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors, tel.id);
   }
   void statusUpdate() { 
@@ -128,7 +137,7 @@ private:
   Switch chan1{pinLeftCh1, pinRightCh1};
   Switch chan2{pinLeftCh2};
   Potmeter chan3{pinCh3};
-  Potmeter deadBand{pinDeadBand, deadBandMin, deadBandMax};
+  Potmeter chan4{pinCh4};
   VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
@@ -139,14 +148,14 @@ private:
 };
 
 Tx *tx = 0;  // initialisation must in setup due to changing pinModes to OUTPUT
+CMD* cmd = 0;
 
 void setup() {
   Serial.begin(115200);
   SerialBLE.begin(BLE_device_Tx); 
   logger = new Logger;
-  int pins_dip[] = {pinWifi0, pinWifi1};
-  DipSwitch dip(2, pins_dip);
-  int wifiChan = (pinWifi0 != PIN_NOT_USED) ? wifiChans[dip.read()] : WIFI_CHANNEL;
+  // nvs_erase(); // use to reset NVS all params to defaults
+  cmd = new CMD(nr_nvs_params, nvs_tab, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   while (!WiFi.STA.started()) delay(100);
   tx = new Tx(macRx, wifiChan, WIFI_IF_STA, nullptr);
@@ -162,5 +171,6 @@ void setup() {
 void loop() {
   tx->sendTx();
   tx->statusUpdate();
+  cmd->update();  // todo lower freq like 5 hz??
   delay(15);  // some headroom to have at least 50Hz
 }
