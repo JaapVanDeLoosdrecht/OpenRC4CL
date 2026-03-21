@@ -1,6 +1,12 @@
 Todo:
+- PCB  must have on/off sitch and buzzer
+- add?? nvs_erase cmd to CMD? erase and reboot, needed if Tx is flashed to Rx or vise versa
+- pair using BLE: pair ble_name -> mac_addr
+- add string type to nva, needed?? SerialBLE.send(data) possible for macadres??
 - Adapt pin mapping to new schema
+- one PCB for Tx, Rx and Timer
 - bug Rx= EndOfFlight -> TX give TxBatLow
+- bug counting lost and error not correct, may missing failt sends??
 - add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
 - add strings as NVS type for macaddress and BLE dev name etc
   NOTE macaddress is hex
@@ -22,7 +28,7 @@ Carier conf
 - move repro to https://codeberg.org/??
 
 protype board V2 or PCB:
-- 3 chans (Esc, TH and servo for hook carrier)
+- 5 chans (Esc, TH and servo for hook carrier)
 - mark servo and VBatt headers with heat-shrink tubing
 - possible PCB producer pcbway.com
 

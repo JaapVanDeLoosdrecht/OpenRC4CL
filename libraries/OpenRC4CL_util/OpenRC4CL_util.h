@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 20 March 2026
+Utils for OpenRC4CL 21 March 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.1"; 
+const char *OpenRC4CL_VERSION = "0.1.2"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -429,6 +429,7 @@ class RcPeer : public ESP_NOW_Peer {  // ESP peer wrapper for Tx and Rx
 public:
   bool readyToSend = true;
   RcPeer(MacAddress mac_peer, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : ESP_NOW_Peer(mac_peer, channel, iface, lmk) {}
+  //RcPeer(char* mac_peer, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : ESP_NOW_Peer(MacAddress mac_peer, channel, iface, lmk) {}
   ~RcPeer() {}
   bool add_self() { return add(); }     // Note add is protected function
   bool send_data(const uint8_t *data, size_t len) { 

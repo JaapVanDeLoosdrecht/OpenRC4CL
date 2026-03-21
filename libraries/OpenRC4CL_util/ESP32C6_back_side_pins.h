@@ -4,6 +4,7 @@
 // source: https://www.sigmdel.ca/michel/ha/xiao/xiao_esp32c6_intro_en.html#pins
 
 static const uint8_t PIN_NOT_USED = 255;
+// NOTE: there is NO A3!!
 static const uint8_t A4 = 4;
 static const uint8_t A5 = 5;
 static const uint8_t A6 = 6;

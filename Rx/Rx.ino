@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 20 March 2026
+Rx OpenRC4CL 21 March 2026
 
 MIT license
 
@@ -22,7 +22,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
-// RX com7 black usb
+// RX com7 black 2nd usb
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -30,8 +30,8 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "OpenRC4CL_util.h"
 #include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
 #ifndef SECRET
-const MacAddress macTx(({0x00, 0x00, 0x00, 0x00, 0x00, 0x00});  // modify with your mac address of Tx
-char *BLE_device_Rx = "Rx-OpenRC4CL";                           // modify with your name
+char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx
+char *BLE_device_Rx = "Rx-OpenRC4CL";       // modify with your name
 #endif
 
 // user settings
@@ -150,15 +150,16 @@ void setup() {
   Serial.begin(115200);
   SerialBLE.begin(BLE_device_Rx); 
   logger = new Logger;
+  // nvs_erase(); // use to reset NVS all params to defaults
   cmd = new CMD(nr_nvs_params, nvs_tab, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
-  rx = new Rx(macTx, wifiChan, WIFI_IF_STA, nullptr);
+  rx = new Rx(MacAddress(macTx), wifiChan, WIFI_IF_STA, nullptr);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx->add_self())) {
     logger->printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("OpenRC4CL %s, Rx channel:%d, MAC Address:%s\n", 
+  logger->printf("OpenRC4CL %s Rx channel:%d MAC Address:%s\n", 
                   OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str());
   logger->printf("Waiting to connect to Tx\n"); 
 }
