@@ -3,6 +3,7 @@ Idea:
 - one PCB for Tx, Rx and Timer
 - make solder connections (pins or flatcable) for communication (2 different types) with IMU board
   MTMS, MTDI, MTCK, MTDO (and? boot)
+  5v, 3.3v and gnd 
 
 Rx:
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6

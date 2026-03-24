@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 21 March 2026
+Utils for OpenRC4CL 23 March 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.2"; 
+const char *OpenRC4CL_VERSION = "0.1.3"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -288,8 +288,9 @@ private:
 };
 
 // Non Volatile Storage
-struct NVS_elm { char* name; int& param; int init; int min; int max; }; 
-#define NVS_ELM(p, min, max) {PSTR(#p), p, p, min, max}
+struct NVS_elm { char* name; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
+#define NVS_INT(p, min, max) {PSTR(#p), PT_I32, &p, p, min, max, 0, ""}
+#define NVS_STR(p) {PSTR(#p), PT_STR, 0, 0, 0, 0, &p, p.c_str()}
 class NVS {  
 public:
   NVS(const int nr_ps, NVS_elm* nvs_tab, Logger *logger) { 
@@ -297,31 +298,44 @@ public:
     nr_params = nr_ps;
     log = logger;
     pref.begin(nmspace, true);  // readonly, initialse from eprom or use default from table
-    for (int i = 0; i < nr_params; i++) tab[i].param = pref.getInt(tab[i].name, tab[i].init);
-    pref.end();
-  }
-  void reset() {  // reset to compile time default values
-    pref.begin(nmspace, false);  // read/write
     for (int i = 0; i < nr_params; i++) {
-	  pref.putInt(tab[i].name, tab[i].init);
-	  tab[i].param = tab[i].init;
-	}
+	  if (isStr(tab[i].name)) { //p_type == PT_STR) { // see Preference.h source code
+		*(tab[i].str_p) = pref.getString(tab[i].name, tab[i].str_0);
+	  } else { // PT_I32
+		*(tab[i].int_p) = pref.getInt(tab[i].name, tab[i].int_0);
+	  } 
+    }
     pref.end();
   }
-  int read(char* name) {
+  bool isParam(char* name) { return getElm(name); }
+  bool isInt(char* name) { return getElm(name)->p_type == PT_I32; };
+  bool isStr(char* name) { return getElm(name)->p_type == PT_STR; };
+  int readInt(char* name) {
     NVS_elm* elm = getElm(name);
-    return (elm) ? elm->param : 0; 
+    return (elm) ? *(elm->int_p) : 0; 
   }
-  void write(char* name, int value) { 
+  void writeInt(char* name, int value) { 
     NVS_elm* elm = getElm(name);
-    if (elm == 0) return;
+    if (elm == 0) return;  // todo log error
 	if ((value < elm->min) || (value > elm->max)) {
 	  log->printf("Error: value must be in range %d..%d\n", elm->min, elm->max);
       return;
 	}
     pref.begin(nmspace, false);  // read/write
     pref.putInt(elm->name, value);
-    elm->param = value;
+    *(elm->int_p) = value;
+    pref.end();
+  }
+  String readStr(char* name) {
+    NVS_elm* elm = getElm(name);
+    return (elm) ? *(elm->str_p) : ""; 
+  }
+  void writeStr(char* name, String value) { 
+    NVS_elm* elm = getElm(name);
+    if (elm == 0) return;
+    pref.begin(nmspace, false);  // read/write
+    pref.putString(elm->name, value);
+    *(elm-> str_p) = value;
     pref.end();
   }
 private:
@@ -349,25 +363,38 @@ class CMD { // CoMmanD interpreter
       nr_params = nr_ps;
       log = logger;
       nvs = new NVS(nr_params, nvs_tab, log); 
-      Serial.printf("passwd=%d\n", nvs->read(PSTR("passwd"))); // Note log passwd to console only!
+      Serial.printf("passwd=%s\n", nvs->readStr(PSTR("passwd"))); // Note log passwd to console only!
       log->printf("password\n");
     }
     void exec(char *cmdline) {
       char *cmd = strsep(&cmdline, " ");
       if (not chk_passwd) {
-        chk_passwd = nvs->read(PSTR("passwd")) == atoi(cmd); 
+        chk_passwd = nvs->readStr(PSTR("passwd")) == String(cmd); 
         (chk_passwd) ? listCmd() : log->printf("invalid password!\n");
       } else if (!strcmp_P(cmd, PSTR("lock"))) {
 		chk_passwd = false;
       } else if (!strcmp_P(cmd, PSTR("set"))) {
         char* param = strsep(&cmdline, " ");
-		if (!param || !is_digits(cmdline)) { log->printf("invalid command\n"); return; }
-        int val = atoi(cmdline);
-        nvs->write(param, val);
-        log->printf("%s=%d\n", param, val);
+		//if (!param) { log->printf("invalid command\n"); return; }
+		if (nvs->isParam(param)) { 
+		  if (nvs->isStr(param)) {
+            Serial.printf("set %s %s\n", param, cmdline);
+            nvs->writeStr(param, cmdline);
+            log->printf("%s=%s\n", param, cmdline);
+		  } else {
+		    if (!param || !is_digits(cmdline)) { log->printf("invalid command\n"); return; }
+            int val = atoi(cmdline);
+            nvs->writeInt(param, val);
+            log->printf("%s=%d\n", param, val);
+		  }
+		}
       } else if (!strcmp_P(cmd, PSTR("get"))) {
 		if (!cmdline) { log->printf("invalid command\n"); return; }
-        log->printf("%s=%d\n", cmdline, nvs->read(cmdline));
+		if (nvs->isStr(cmdline)) {
+          log->printf("%s=%s\n", cmdline, nvs->readStr(cmdline).c_str());
+		} else {
+          log->printf("%s=%d\n", cmdline, nvs->readInt(cmdline));
+		}
       } else if (!strcmp_P(cmd, PSTR("list"))) {
 		listCmd();
       } else if (!strcmp_P(cmd, PSTR("help"))) {
@@ -375,8 +402,8 @@ class CMD { // CoMmanD interpreter
       } else if (!strcmp_P(cmd, PSTR("version"))) {
         log->printf("%s\n", OpenRC4CL_VERSION);
       } else if (!strcmp_P(cmd, PSTR("default"))) {
-		nvs->reset();
-		listCmd();
+		nvs_erase();
+		ESP.restart();
       } else if (!strcmp_P(cmd, PSTR("reboot"))) {
 		ESP.restart();
       } else {
@@ -390,11 +417,11 @@ class CMD { // CoMmanD interpreter
       else if (Serial.available()) { data = Serial.read(); read = true; }
       if (read) {
         if (data == '\r') {
-            buffer[length] = '\0';     // properly terminate the string
-            if (length) exec(buffer);  // give to interpreter
-            length = 0;                // reset for next command
+          buffer[length] = '\0';     // properly terminate the string
+          if (length) exec(buffer);  // give to interpreter
+          length = 0;                // reset for next command
         } else if ((data != '\n') && (length < BUF_LENGTH - 1)) {  // discard \n
-            buffer[length++] = data;   // buffer the incoming byte
+          buffer[length++] = data;   // buffer the incoming byte
         }
       }
     }
@@ -411,7 +438,13 @@ class CMD { // CoMmanD interpreter
     void listCmd() {
       const int maxp = 10;
       for (int i = 0; i < nr_params; i++) {
-        if (strcmp_P(tab[i].name, PSTR("passwd"))) log->printf("%s=%d ", tab[i].name, tab[i].param);
+        if (strcmp_P(tab[i].name, PSTR("passwd"))) {
+		  if (tab[i].p_type == PT_STR) {
+		    log->printf("%s=%s ", tab[i].name, tab[i].str_p->c_str());
+		  } else {
+		    log->printf("%s=%d ", tab[i].name, *(tab[i].int_p));
+		  }
+		}
         if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
       }
 	}
@@ -429,7 +462,6 @@ class RcPeer : public ESP_NOW_Peer {  // ESP peer wrapper for Tx and Rx
 public:
   bool readyToSend = true;
   RcPeer(MacAddress mac_peer, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : ESP_NOW_Peer(mac_peer, channel, iface, lmk) {}
-  //RcPeer(char* mac_peer, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk) : ESP_NOW_Peer(MacAddress mac_peer, channel, iface, lmk) {}
   ~RcPeer() {}
   bool add_self() { return add(); }     // Note add is protected function
   bool send_data(const uint8_t *data, size_t len) { 

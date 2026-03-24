@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 21 March 2026
+TX OpenRC4CL 24 March 2026
 
 MIT license
 
@@ -28,10 +28,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <limits.h>
 #include "OpenRC4CL_util.h"  
-#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
+#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out
 #ifndef SECRET
-char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Rx
-char *BLE_device_Tx = "Tx-OpenRC4CL";       // modify with your name
+char* macRx = "00:00:00:00:00:00";          // modify with your mac address of Rx or use serial CMDs
 #endif
 
 // to user settings to be moved to NVS params, will need reboot
@@ -56,15 +55,19 @@ const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no overleap with TH
 const int deadBandMin = -deadBandMax;    
 // user settings (NVS params)
-int passwd = 123;
+String devName = "Tx-OpenRC4CL";
+String macPeer(macRx); 
+String passwd = "123";
 int wifiChan = 6;                           // [1..13]
 int deadBand = 0;                           // for TH low
 // NVS config
-const int nr_nvs_params = 3;                // note can NOT be dynamic
+const int nr_nvs_params = 5;                // note can NOT be dynamic
 NVS_elm nvs_tab[nr_nvs_params] = { 
-  NVS_ELM(passwd, 0, INT_MAX), 
-  NVS_ELM(wifiChan, 1, 13), 
-  NVS_ELM(deadBand, deadBandMin, deadBandMax),
+  NVS_STR(devName),
+  NVS_STR(macPeer),
+  NVS_STR(passwd), 
+  NVS_INT(wifiChan, 1, 13),
+  NVS_INT(deadBand, deadBandMin, deadBandMax),
 };
 // global vars
 Logger *logger = 0; 
@@ -152,19 +155,20 @@ CMD* cmd = 0;
 
 void setup() {
   Serial.begin(115200);
-  SerialBLE.begin(BLE_device_Tx); 
+  SerialBLE.begin(devName); 
   logger = new Logger;
-  // nvs_erase(); // use to reset NVS all params to defaults
+  // nvs_erase();
   cmd = new CMD(nr_nvs_params, nvs_tab, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   while (!WiFi.STA.started()) delay(100);
-  tx = new Tx(MacAddress(macRx), wifiChan, WIFI_IF_STA, nullptr);
+  tx = new Tx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("OpenRC4CL %s Tx channel:%d MAC Address:%s\n", 
-                  OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str());
+  logger->printf("OpenRC4CL %s Tx %s channel:%d MAC Address:%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str());
+  logger->printf("Waiting to connect to Rx %s\n", macPeer.c_str()); 
   tx->wait4ThrHold();
 }
 

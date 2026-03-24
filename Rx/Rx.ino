@@ -1,5 +1,21 @@
+// #include <ESP32C6_back_side_pins.h>
+// #include <OpenRC4CL_util.h>
+// #include <secret.h>
+
+// #include <ESP32C6_back_side_pins.h>
+// #include <OpenRC4CL_util.h>
+// #include <secret.h>
+
+// #include <ESP32C6_back_side_pins.h>
+// #include <OpenRC4CL_util.h>
+// #include <secret.h>
+
+// #include <ESP32C6_back_side_pins.h>
+// #include <OpenRC4CL_util.h>
+// #include <secret.h>
+
 /* 
-Rx OpenRC4CL 21 March 2026
+Rx OpenRC4CL 24 March 2026
 
 MIT license
 
@@ -28,10 +44,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <limits.h>
 #include "OpenRC4CL_util.h"
-#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out, specify wifi_chan, mac address and BLE_device
+#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out
 #ifndef SECRET
-char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx
-char *BLE_device_Rx = "Rx-OpenRC4CL";       // modify with your name
+char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMDs
 #endif
 
 // user settings
@@ -55,15 +70,19 @@ const int lipoDivR2 = 100000;               // R2 lipo voltage divider
 const int NR_PACKETS = 50;                  // nr packets for telemetry and logging
 const unsigned long FAILSAFE_TIME = 500;    // ms
 // user settings (NVS params)
-int passwd = 123;
+String devName = "Rx-OpenRC4CL";
+String macPeer = "98:A3:16:61:1D:5C";
+String passwd = "123";
 int wifiChan = 6;                           // [1..13]
 int maxTime = maxFlight;                    // change needs reboot
 // NVS config
-const int nr_nvs_params = 3;                // note can NOT be dynamic
+const int nr_nvs_params = 5;                // note can NOT be dynamic
 NVS_elm nvs_tab[nr_nvs_params] = { 
-  NVS_ELM(passwd, 0, INT_MAX), 
-  NVS_ELM(wifiChan, 1, 13),
-  NVS_ELM(maxTime, 10, maxFlight),
+  NVS_STR(devName),
+  NVS_STR(macPeer),
+  NVS_STR(passwd), 
+  NVS_INT(wifiChan, 1, 13),
+  NVS_INT(maxTime, 10, maxFlight),
 };
 // global vars
 Logger *logger = 0; 
@@ -148,20 +167,20 @@ CMD* cmd = 0;
 
 void setup() {
   Serial.begin(115200);
-  SerialBLE.begin(BLE_device_Rx); 
+  SerialBLE.begin(devName);
   logger = new Logger;
-  // nvs_erase(); // use to reset NVS all params to defaults
+  // nvs_erase();
   cmd = new CMD(nr_nvs_params, nvs_tab, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
-  rx = new Rx(MacAddress(macTx), wifiChan, WIFI_IF_STA, nullptr);
+  rx = new Rx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx->add_self())) {
     logger->printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("OpenRC4CL %s Rx channel:%d MAC Address:%s\n", 
-                  OpenRC4CL_VERSION, wifiChan, WiFi.macAddress().c_str());
-  logger->printf("Waiting to connect to Tx\n"); 
+  logger->printf("OpenRC4CL %s Rx %s channel:%d MAC Address:%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str());
+  logger->printf("Waiting to connect to Tx %s\n", macPeer.c_str()); 
 }
 
 void loop() {

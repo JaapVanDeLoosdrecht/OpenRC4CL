@@ -1,4 +1,11 @@
 Todo:
+- use isInt/Str everywhere
+- nvs.add(param) ipv struct init
+- add cmd input checks
+- Add data str build date
+- commit and push
+
+- remove PSTRs??  #define PSTR(s) s
 - PCB  must have on/off sitch and buzzer
 - add?? nvs_erase cmd to CMD? erase and reboot, needed if Tx is flashed to Rx or vise versa
 - pair using BLE: pair ble_name -> mac_addr
@@ -67,7 +74,8 @@ fase2:
 )
 
 Changed:
-- added Cmds default, reboot and lock
-- add min and max values to NVS param config
-- make CMDs more robust, like set param <no value> or illegal string for int, etc
-- extended to 5 chans
+- NVS and CMD update to handle both INTs and STRs
+- implemented serial CMD bind method
+- CMD erase added
+- password changed to string
+
