@@ -1,15 +1,6 @@
 Todo:
-- use isInt/Str everywhere
-- nvs.add(param) ipv struct init
-- add cmd input checks
-- Add data str build date
-- commit and push
-
 - remove PSTRs??  #define PSTR(s) s
 - PCB  must have on/off sitch and buzzer
-- add?? nvs_erase cmd to CMD? erase and reboot, needed if Tx is flashed to Rx or vise versa
-- pair using BLE: pair ble_name -> mac_addr
-- add string type to nva, needed?? SerialBLE.send(data) possible for macadres??
 - Adapt pin mapping to new schema
 - one PCB for Tx, Rx and Timer
 - bug Rx= EndOfFlight -> TX give TxBatLow
@@ -48,6 +39,7 @@ fase2:
   - 220/12/24V charger
   - new balance board Junsi
   - (balsa) wood for Limes racer
+- pair using wifi breadcast mode pair ble_name -> mac_addr
 - Tx for all chans add 
   - offset middle position
   - min and max value
@@ -74,8 +66,4 @@ fase2:
 )
 
 Changed:
-- NVS and CMD update to handle both INTs and STRs
-- implemented serial CMD bind method
-- CMD erase added
-- password changed to string
-
+- nvs.add(param) instead of struct init

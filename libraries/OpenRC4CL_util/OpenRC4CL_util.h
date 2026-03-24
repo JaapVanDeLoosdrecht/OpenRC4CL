@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.3"; 
+const char *OpenRC4CL_VERSION = "0.1.4"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -288,67 +288,74 @@ private:
 };
 
 // Non Volatile Storage
-struct NVS_elm { char* name; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
-#define NVS_INT(p, min, max) {PSTR(#p), PT_I32, &p, p, min, max, 0, ""}
+struct NVS_PARAM { char* name; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
+#define NVS_INT(p, min, max) {PSTR(#p), PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
 #define NVS_STR(p) {PSTR(#p), PT_STR, 0, 0, 0, 0, &p, p.c_str()}
 class NVS {  
 public:
-  NVS(const int nr_ps, NVS_elm* nvs_tab, Logger *logger) { 
-    tab = nvs_tab; 
-    nr_params = nr_ps;
+  NVS(const int max_ps, Logger *logger) { 
+    max_params = max_ps;
+    tab = new NVS_PARAM[max_params]; 
+    nr_params = 0;
     log = logger;
-    pref.begin(nmspace, true);  // readonly, initialse from eprom or use default from table
-    for (int i = 0; i < nr_params; i++) {
-	  if (isStr(tab[i].name)) { //p_type == PT_STR) { // see Preference.h source code
-		*(tab[i].str_p) = pref.getString(tab[i].name, tab[i].str_0);
-	  } else { // PT_I32
-		*(tab[i].int_p) = pref.getInt(tab[i].name, tab[i].int_0);
-	  } 
-    }
-    pref.end();
   }
-  bool isParam(char* name) { return getElm(name); }
-  bool isInt(char* name) { return getElm(name)->p_type == PT_I32; };
-  bool isStr(char* name) { return getElm(name)->p_type == PT_STR; };
+  void add(NVS_PARAM np) {  // must be by value
+	if (nr_params >= max_params-1) { log->printf("Error: NVS table full\n"); return; }
+	NVS_PARAM* p = &tab[nr_params];
+	tab[nr_params++] = np;
+    pref.begin(nmspace, true);  // readonly, initialse from eprom or use default from table
+    if (isStr(p->name)) { 
+	  *(p->str_p) = pref.getString(p->name, p->str_0);
+	} else { // PT_I32
+	  *(p->int_p) = pref.getInt(p->name, p->int_0);
+    }
+    pref.end();  
+  }
+  int nrParams(void) { return nr_params; }
+  NVS_PARAM* nvsTab(void) { return tab; }
+  bool isParam(char* name) { return getParam(name); }
+  bool isInt(char* name) { return getParam(name)->p_type == PT_I32; };
+  bool isStr(char* name) { return getParam(name)->p_type == PT_STR; };
   int readInt(char* name) {
-    NVS_elm* elm = getElm(name);
-    return (elm) ? *(elm->int_p) : 0; 
+    NVS_PARAM* p = getParam(name);
+    return (p) ? *(p->int_p) : 0; 
   }
   void writeInt(char* name, int value) { 
-    NVS_elm* elm = getElm(name);
-    if (elm == 0) return;  // todo log error
-	if ((value < elm->min) || (value > elm->max)) {
-	  log->printf("Error: value must be in range %d..%d\n", elm->min, elm->max);
+    NVS_PARAM* p = getParam(name);
+    if (p == 0) return;  // todo log error
+	if ((value < p->min) || (value > p->max)) {
+	  log->printf("Error: value must be in range %d..%d\n", p->min, p->max);
       return;
 	}
     pref.begin(nmspace, false);  // read/write
-    pref.putInt(elm->name, value);
-    *(elm->int_p) = value;
+    pref.putInt(p->name, value);
+    *(p->int_p) = value;
     pref.end();
   }
   String readStr(char* name) {
-    NVS_elm* elm = getElm(name);
-    return (elm) ? *(elm->str_p) : ""; 
+    NVS_PARAM* p = getParam(name);
+    return (p) ? *(p->str_p) : ""; 
   }
   void writeStr(char* name, String value) { 
-    NVS_elm* elm = getElm(name);
-    if (elm == 0) return;
+    NVS_PARAM* p = getParam(name);
+    if (p == 0) return;
     pref.begin(nmspace, false);  // read/write
-    pref.putString(elm->name, value);
-    *(elm-> str_p) = value;
+    pref.putString(p->name, value);
+    *(p-> str_p) = value;
     pref.end();
   }
 private:
-  NVS_elm* getElm(char *name) { 
+  NVS_PARAM* getParam(char *name) { 
     for (int i = 0; i < nr_params; i++) if (strcmp_P(name, tab[i].name) == 0) return &tab[i];
     log->printf("Unknown NVS param name:%s\n", name);
     return 0;
   }
   char* nmspace = PSTR("OpenRC4CL");
   Preferences pref;
-  NVS_elm* tab;
+  NVS_PARAM* tab = 0; 
+  int max_params;
   int nr_params;
-  Logger *log;
+  Logger *log = 0;
 };
 static void nvs_erase() {  // erase the NVS partition
   nvs_flash_erase();  
@@ -358,11 +365,11 @@ static void nvs_erase() {  // erase the NVS partition
 
 class CMD { // CoMmanD interpreter
   public:
-    CMD(const int nr_ps, NVS_elm* nvs_tab, Logger *logger) { 
-      tab = nvs_tab; 
-      nr_params = nr_ps;
+    CMD(NVS* _nvs, Logger *logger) { 
+      nvs = _nvs;
+	  tab = nvs->nvsTab(); 
+      nr_params = nvs->nrParams();
       log = logger;
-      nvs = new NVS(nr_params, nvs_tab, log); 
       Serial.printf("passwd=%s\n", nvs->readStr(PSTR("passwd"))); // Note log passwd to console only!
       log->printf("password\n");
     }
@@ -375,7 +382,6 @@ class CMD { // CoMmanD interpreter
 		chk_passwd = false;
       } else if (!strcmp_P(cmd, PSTR("set"))) {
         char* param = strsep(&cmdline, " ");
-		//if (!param) { log->printf("invalid command\n"); return; }
 		if (nvs->isParam(param)) { 
 		  if (nvs->isStr(param)) {
             Serial.printf("set %s %s\n", param, cmdline);
@@ -437,25 +443,27 @@ class CMD { // CoMmanD interpreter
 	}
     void listCmd() {
       const int maxp = 10;
-      for (int i = 0; i < nr_params; i++) {
-        if (strcmp_P(tab[i].name, PSTR("passwd"))) {
-		  if (tab[i].p_type == PT_STR) {
-		    log->printf("%s=%s ", tab[i].name, tab[i].str_p->c_str());
+	  NVS_PARAM* p = nvs->nvsTab(); 
+      for (int i = 0; i < nvs->nrParams(); i++) {
+        if (strcmp_P(p->name, PSTR("passwd"))) {
+		  if (nvs->isStr(p->name)) { 
+		    log->printf("%s=%s ", p->name, p->str_p->c_str());
 		  } else {
-		    log->printf("%s=%d ", tab[i].name, *(tab[i].int_p));
+		    log->printf("%s=%d ", p->name, *(p->int_p));
 		  }
 		}
         if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
+		p++;
       }
 	}
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];
     int length = 0;  // length of line received so far
     bool chk_passwd = false;
-    NVS_elm* tab;
-    int nr_params;
-    NVS* nvs;
-    Logger *log;
+    NVS_PARAM* tab = 0;
+    int nr_params = 0;
+    NVS* nvs = 0;
+    Logger *log = 0;
 };
 
 class RcPeer : public ESP_NOW_Peer {  // ESP peer wrapper for Tx and Rx

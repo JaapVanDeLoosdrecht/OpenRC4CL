@@ -71,19 +71,22 @@ const int NR_PACKETS = 50;                  // nr packets for telemetry and logg
 const unsigned long FAILSAFE_TIME = 500;    // ms
 // user settings (NVS params)
 String devName = "Rx-OpenRC4CL";
-String macPeer = "98:A3:16:61:1D:5C";
+String macPeer(macTx); 
 String passwd = "123";
 int wifiChan = 6;                           // [1..13]
 int maxTime = maxFlight;                    // change needs reboot
-// NVS config
-const int nr_nvs_params = 5;                // note can NOT be dynamic
-NVS_elm nvs_tab[nr_nvs_params] = { 
-  NVS_STR(devName),
-  NVS_STR(macPeer),
-  NVS_STR(passwd), 
-  NVS_INT(wifiChan, 1, 13),
-  NVS_INT(maxTime, 10, maxFlight),
-};
+
+NVS* buildNVS(Logger *logger) {
+  const int max_nvs_params = 16; 
+  NVS* nvs = new NVS(max_nvs_params, logger); 
+  nvs->add(NVS_STR(devName));
+  nvs->add(NVS_STR(macPeer));
+  nvs->add(NVS_STR(passwd));
+  nvs->add(NVS_INT(wifiChan, 1, 13));
+  nvs->add(NVS_INT(maxTime, 10, maxFlight));
+  return nvs;
+}
+
 // global vars
 Logger *logger = 0; 
 
@@ -163,6 +166,7 @@ private:
 };
 
 Rx *rx = 0; // initialisation must in setup 
+NVS *nvs = 0;
 CMD* cmd = 0;
 
 void setup() {
@@ -170,7 +174,8 @@ void setup() {
   SerialBLE.begin(devName);
   logger = new Logger;
   // nvs_erase();
-  cmd = new CMD(nr_nvs_params, nvs_tab, logger);
+  nvs = buildNVS(logger); 
+  cmd = new CMD(nvs, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   rx = new Rx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr);
   while (!WiFi.STA.started()) delay(100);
