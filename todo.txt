@@ -1,18 +1,15 @@
 Todo:
-- remove PSTRs??  #define PSTR(s) s
-- PCB  must have on/off sitch and buzzer
-- Adapt pin mapping to new schema
+- push and commit, incr version nr
+- remove PSTRs  #define PSTR(s) s
+- PCB must have on/off sitch and buzzer
+- test with prototype boards
 - one PCB for Tx, Rx and Timer
 - bug Rx= EndOfFlight -> TX give TxBatLow
 - bug counting lost and error not correct, may missing failt sends??
 - add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
-- add strings as NVS type for macaddress and BLE dev name etc
-  NOTE macaddress is hex
 - make better photos of protoboards and screenshot of BL logging
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
-TRAINER_CONFIG
-Mac adressen en pin consts etc
-FullConf
+
 Carier conf
 - CLTimer: 
   Update to latest version of OpenRC4CL_util.h
@@ -66,4 +63,5 @@ fase2:
 )
 
 Changed:
-- nvs.add(param) instead of struct init
+- Adapted pin mapping to new schema
+

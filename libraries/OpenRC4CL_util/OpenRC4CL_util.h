@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 23 March 2026
+Utils for OpenRC4CL 25 March 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.4"; 
+const char *OpenRC4CL_VERSION = "0.1.5"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -36,6 +36,8 @@ const char *OpenRC4CL_VERSION = "0.1.4";
 #include <ESP32Servo.h>
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
+
+#define PSTR(s) s 
 
 BLESerial<> SerialBLE;  // make SerialBLE global accesable like Serial, use Serial Bluetooth Terminal App (Google play)
 extern BLESerial<> SerialBLE;  
@@ -442,7 +444,7 @@ class CMD { // CoMmanD interpreter
       return true;
 	}
     void listCmd() {
-      const int maxp = 10;
+      const int maxp = 6;
 	  NVS_PARAM* p = nvs->nvsTab(); 
       for (int i = 0; i < nvs->nrParams(); i++) {
         if (strcmp_P(p->name, PSTR("passwd"))) {

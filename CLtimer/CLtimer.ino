@@ -21,6 +21,10 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+
+// ***************************************THIS FILE NEEDS UPDATING  *******************************************
+
+
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
 // CLtimer com7 white usb
 

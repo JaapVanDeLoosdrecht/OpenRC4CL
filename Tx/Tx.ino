@@ -33,22 +33,21 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 char* macRx = "00:00:00:00:00:00";          // modify with your mac address of Rx or use serial CMDs
 #endif
 
-// to user settings to be moved to NVS params, will need reboot
-const int nrWarns = 3;                      // number beeps if Tx/RxBattLow and if timer is expired number throttle warnings before stopping engine
-const int stopEngine = 4;                   // if timer is expired number seconds to stop engine after last warning
-const int txBattLow = 3500;                 // min voltage for Tx lipo
+#define PSTR(s) s 
+
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
+const int pinVBatt = A2;                      
 const int pinThrottleHold = D3;
-const int pinLeftCh1 = D4;
-const int pinRightCh1 = D5;
-const int pinLeftCh2 = D6;
-const int pinRightCh2 = D7;
-const int pinCh3 = PIN_NOT_USED;            // A2; 
-const int pinCh4 = PIN_NOT_USED;            // A2; 
-const int pinBeep = D8;   
-const int pinVBatt = A1;                      
+const int pinBeep = D4;   
+const int pinLeftCh1 = PIN_NOT_USED;        // D5;
+const int pinRightCh1 = PIN_NOT_USED;       // D6;
+const int pinLeftCh2 = PIN_NOT_USED;        // D7;
+const int pinRightCh2 = PIN_NOT_USED;       // D6;
+const int pinCh3 = PIN_NOT_USED;            // A5; 
+const int pinCh4 = PIN_NOT_USED;            // A6; 
+// todo const int pinExternLed = D10; 
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
 const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 // system
@@ -60,6 +59,9 @@ String macPeer(macRx);
 String passwd = "123";
 int wifiChan = 6;                           // [1..13]
 int deadBand = 0;                           // for TH low
+int txBattLow = 3500;                       // min voltage for Tx lipo
+int nrWarns = 3;                            // number beeps if Tx/RxBattLow and if timer is expired number throttle warnings before stopping engine
+int stopEngine = 4;                         // if timer is expired number seconds to stop engine after last warning
 
 NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 16; 
@@ -68,7 +70,10 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_STR(macPeer));
   nvs->add(NVS_STR(passwd));
   nvs->add(NVS_INT(wifiChan, 1, 13));
-  nvs->add(NVS_INT(deadBand, deadBandMin, deadBandMax));
+  nvs->add(NVS_INT(deadBand, deadBandMin, deadBandMax));  // deadband delta for throttle
+  nvs->add(NVS_INT(txBattLow, 3000, 4350));
+  nvs->add(NVS_INT(nrWarns, 1, 10));
+  nvs->add(NVS_INT(stopEngine, 0, 30));
   return nvs;
 }
 
@@ -95,7 +100,7 @@ public:
     if (send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
       lastId = id;
     } else {
-      if (abs(id - lastId) > 1) { status.value = Status::Error; errors++; }
+      status.value = Status::Error; errors++;
     }
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {

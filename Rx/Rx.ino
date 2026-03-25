@@ -15,7 +15,7 @@
 // #include <secret.h>
 
 /* 
-Rx OpenRC4CL 24 March 2026
+Rx OpenRC4CL 25 March 2026
 
 MIT license
 
@@ -49,6 +49,8 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMDs
 #endif
 
+#define PSTR(s) s 
+
 // user settings
 const int maxFlight = 10*60;                // seconds, if maxTime is not in used.
 const int nrWarns = 2;                      // number if throttle warnings before stopping engine
@@ -58,23 +60,24 @@ const int minThrottle = TxMidPulse;         // min throttle value to start timer
 // hardware
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
-const int pinChan1 = PIN_NOT_USED;          // A1;                    
-const int pinChan2 = PIN_NOT_USED;          // A2;                    
-const int pinChan3 = PIN_NOT_USED;          // A4;  
-const int pinChan4 = PIN_NOT_USED;          // A4;  
-const int pinVBattLow = A1;                 // A5;  
-const int pinVBatt = A2;                    // A6;  
+const int pinCh1 = PIN_NOT_USED;            // A1; 
+const int pinVBatt = A2;                    
+const int pinCh2 = PIN_NOT_USED;            // A4; 
+const int pinCh3 = PIN_NOT_USED;            // A5; 
+const int pinCh4 = PIN_NOT_USED;            // A6; 
+// todo const int pinExternLed = D10; 
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
 const int lipoDivR2 = 100000;               // R2 lipo voltage divider
 // system
-const int NR_PACKETS = 50;                  // nr packets for telemetry and logging
+const int NR_PACKETS = 100;                 // nr packets for telemetry and logging
 const unsigned long FAILSAFE_TIME = 500;    // ms
 // user settings (NVS params)
 String devName = "Rx-OpenRC4CL";
 String macPeer(macTx); 
 String passwd = "123";
 int wifiChan = 6;                           // [1..13]
-int maxTime = maxFlight;                    // change needs reboot
+int maxTime = maxFlight;                    
+int vBattLow = 3500;
 
 NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 16; 
@@ -84,6 +87,7 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_STR(passwd));
   nvs->add(NVS_INT(wifiChan, 1, 13));
   nvs->add(NVS_INT(maxTime, 10, maxFlight));
+  nvs->add(NVS_INT(vBattLow, 3000, 8*4350));
   return nvs;
 }
 
@@ -116,7 +120,7 @@ public:
     if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
     if (++count >= NR_PACKETS) {  
       int rsi =  max(NR_PACKETS-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), lowVBatt.read(), rsi, timer.secondsLeft(), totalLost, errors};
+      struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), vBattLow, rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
@@ -152,12 +156,11 @@ public:
 private:
   RcTimer timer{maxFlight};
   Throttle throttle{pinThrottle, &timer, minThrottle, maxTime, escWarning, nrWarns, stopEngine};
-  RcServo chan1{pinChan1, TxMinPulse, TxMaxPulse, 0, -1};
-  RcServo chan2{pinChan2, TxMinPulse, TxMaxPulse, 0, -1};
-  RcServo chan3{pinChan3, TxMinPulse, TxMaxPulse, 0, -1};
-  RcServo chan4{pinChan4, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan1{pinCh1, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan2{pinCh2, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan3{pinCh3, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan4{pinCh4, TxMinPulse, TxMaxPulse, 0, -1};
   VoltageDiv vBatt{pinVBatt, lipoDivR1, lipoDivR2};
-  Potmeter lowVBatt{pinVBattLow, 0, vBatt.max()}; 
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true}; 
   bool connected = false, waitThrHold = true;

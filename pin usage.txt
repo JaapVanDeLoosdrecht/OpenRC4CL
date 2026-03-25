@@ -4,6 +4,8 @@ Idea:
 - make solder connections (pins or flatcable) for communication (2 different types) with IMU board
   MTMS, MTDI, MTCK, MTDO (and? boot)
   5v, 3.3v and gnd 
+- if possible extra space on PCB for push botton and 1 or 2 instel potmeter (needs  bridges or wires)
+  alternative only solder connections
 
 Rx:
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
