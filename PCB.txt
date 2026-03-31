@@ -1,0 +1,40 @@
+PCB:
+- orientatie internal antenna = left next to usb
+- for Tx:
+  - from 3V C6 to 3V/5V
+  - from +TxBatt to +VBatt
+    from TxBatt + and - to + and - on bat C6
+- one PCB for Tx, Rx and Timer
+- Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
+- Antenna
+  You may need to reduce the output power. For some reason, the supermini has issues running at max power, 
+  which I believe is the default setting. There are a few potential issues with this device that can often 
+  be resolved through configuration, including your specific problem. I suggest taking a look at a great video 
+  that I found: https://www.youtube.com/watch?v=IzLD6f8cDHs&list=WL&index=3 which offers several tips for 
+  using this device. I don't, however, recommend reducing the power to its minimum level, as suggested in the video. 
+  Try some of the mid-way power level settings, perhaps WIFI_POWER_11dBm, or WIFI_POWER_7dBm. 
+  I suspect a lot of the product reviews that report faulty modules might have been resolvable by following these tips. 
+  The chip antennas do work, but they are more directional than the PCB antennas; so, attention to the orientation of the device is recommend. 
+- Tx has 3.3V servo inputs, Rx 5V servo outputs
+- no angeled pins (servo or vbatt) for Tx but solder servo wires to keep print flat
+- Timer: use TH for button and beeper pin for External led if needed
+- BAT- connected to GND
+  IAO ESP32C6, GND (in the 7*2 pins) and BAT- (on the backside) is actually connected together.
+  Safe to tie grounds together, you can safely reference BAT- to any GND point on your PCB.
+  But you cannot bypass the BAT pads for charging. If you want to use the onboard charger, 
+  you must route the battery through the bottom BAT pads.
+  
+PCB checks:
+- Use ENIG
+- Vias for connecting wires are pins must have hole 1mm and ring thickness 0.5mm
+- Click on Via shows all connected wires and other vias
+- add some mounting holes
+  solder servo wires in order to keep height low
+- solder C6 with some extra clearance betweeb PCB to avoid shorcut or use tape
+- idea: 4 vias in corners for mounting hole
+- at least 0.5 mm from outside borders, 1mm if round off corner edges (v-scoring?) of PCB
+- design rules check
+- zoom in and check if all connections are present
+  view both top and bottom side
+- orientation diode
+- print PCB and check spacing components

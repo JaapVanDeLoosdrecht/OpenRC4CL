@@ -1,11 +1,31 @@
-Todo:
-- push and commit, incr version nr
-- remove PSTRs  #define PSTR(s) s
-- PCB must have on/off sitch and buzzer
-- test with prototype boards
+PCB:
+- orientaties antenna(s)??
+- make PCB.tx,see also pin_usage.txt
+- for Tx:
+  - from 3V C6 to 3V/5V
+  - from +TxBatt to +VBatt
+    from TxBatt + and - to + and - on bat C6
+- test with prototype boards or breadboard
 - one PCB for Tx, Rx and Timer
+- Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
+- Antenna
+  You may need to reduce the output power. For some reason, the supermini has issues running at max power, 
+  which I believe is the default setting. There are a few potential issues with this device that can often 
+  be resolved through configuration, including your specific problem. I suggest taking a look at a great video 
+  that I found: https://www.youtube.com/watch?v=IzLD6f8cDHs&list=WL&index=3 which offers several tips for 
+  using this device. I don't, however, recommend reducing the power to its minimum level, as suggested in the video. 
+  Try some of the mid-way power level settings, perhaps WIFI_POWER_11dBm, or WIFI_POWER_7dBm. 
+  I suspect a lot of the product reviews that report faulty modules might have been resolvable by following these tips. 
+  The chip antennas do work, but they are more directional than the PCB antennas; so, attention to the orientation of the device is recommend. 
+
+Todo:
+- Rename class Switch to SwitchDI and make SwitchAI
+  Note dangling middle=dangling 0V, L/R= 1.65V/3.3V, use Tx software to put in 'ascending order'
+- use int buf[nrChans], use SW1(RL) and SW2(RL) in code instead of chan1 and chan2
+- Rx: create NVS param and use map(ping table)
+- 2 or 3 position switches on Tx are also possible using reading the normal channels and analoge input
+- Save Compile time date in NVS date using __DATE__ 
 - bug Rx= EndOfFlight -> TX give TxBatLow
-- bug counting lost and error not correct, may missing failt sends??
 - add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
 - make better photos of protoboards and screenshot of BL logging
 - move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
@@ -33,9 +53,9 @@ fase2:
   - combat engine, esc and props
   - prop balancer
   - longer CL lines
-  - 220/12/24V charger
   - new balance board Junsi
-  - (balsa) wood for Limes racer
+- add channel mapping on Rx default "[0,1,2,3,4]"
+  map channel order right after packet is received
 - pair using wifi breadcast mode pair ble_name -> mac_addr
 - Tx for all chans add 
   - offset middle position
@@ -63,5 +83,6 @@ fase2:
 )
 
 Changed:
-- Adapted pin mapping to new schema
+- removed PSTRs
+- moved Tx and Rx const to NVS
 

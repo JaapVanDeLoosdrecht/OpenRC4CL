@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 25 March 2026
+Utils for OpenRC4CL 26 March 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.5"; 
+const char *OpenRC4CL_VERSION = "0.1.6"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -36,8 +36,6 @@ const char *OpenRC4CL_VERSION = "0.1.5";
 #include <ESP32Servo.h>
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
-
-#define PSTR(s) s 
 
 BLESerial<> SerialBLE;  // make SerialBLE global accesable like Serial, use Serial Bluetooth Terminal App (Google play)
 extern BLESerial<> SerialBLE;  
@@ -291,8 +289,8 @@ private:
 
 // Non Volatile Storage
 struct NVS_PARAM { char* name; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
-#define NVS_INT(p, min, max) {PSTR(#p), PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
-#define NVS_STR(p) {PSTR(#p), PT_STR, 0, 0, 0, 0, &p, p.c_str()}
+#define NVS_INT(p, min, max) {#p, PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
+#define NVS_STR(p) {#p, PT_STR, 0, 0, 0, 0, &p, p.c_str()}
 class NVS {  
 public:
   NVS(const int max_ps, Logger *logger) { 
@@ -352,7 +350,7 @@ private:
     log->printf("Unknown NVS param name:%s\n", name);
     return 0;
   }
-  char* nmspace = PSTR("OpenRC4CL");
+  char* nmspace = "OpenRC4CL";
   Preferences pref;
   NVS_PARAM* tab = 0; 
   int max_params;
@@ -372,17 +370,16 @@ class CMD { // CoMmanD interpreter
 	  tab = nvs->nvsTab(); 
       nr_params = nvs->nrParams();
       log = logger;
-      Serial.printf("passwd=%s\n", nvs->readStr(PSTR("passwd"))); // Note log passwd to console only!
-      log->printf("password\n");
+      Serial.printf("%s=%s\n", passwdCmd, nvs->readStr(passwdCmd)); // Note log passwd to console only!
     }
     void exec(char *cmdline) {
       char *cmd = strsep(&cmdline, " ");
       if (not chk_passwd) {
-        chk_passwd = nvs->readStr(PSTR("passwd")) == String(cmd); 
+        chk_passwd = nvs->readStr(passwdCmd) == String(cmd); 
         (chk_passwd) ? listCmd() : log->printf("invalid password!\n");
-      } else if (!strcmp_P(cmd, PSTR("lock"))) {
+      } else if (!strcmp(cmd, "lock")) {
 		chk_passwd = false;
-      } else if (!strcmp_P(cmd, PSTR("set"))) {
+      } else if (!strcmp(cmd, "set")) {
         char* param = strsep(&cmdline, " ");
 		if (nvs->isParam(param)) { 
 		  if (nvs->isStr(param)) {
@@ -396,23 +393,23 @@ class CMD { // CoMmanD interpreter
             log->printf("%s=%d\n", param, val);
 		  }
 		}
-      } else if (!strcmp_P(cmd, PSTR("get"))) {
+      } else if (!strcmp(cmd, "get")) {
 		if (!cmdline) { log->printf("invalid command\n"); return; }
 		if (nvs->isStr(cmdline)) {
           log->printf("%s=%s\n", cmdline, nvs->readStr(cmdline).c_str());
 		} else {
           log->printf("%s=%d\n", cmdline, nvs->readInt(cmdline));
 		}
-      } else if (!strcmp_P(cmd, PSTR("list"))) {
+      } else if (!strcmp(cmd, "list")) {
 		listCmd();
-      } else if (!strcmp_P(cmd, PSTR("help"))) {
-        log->printf(PSTR("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n"));
-      } else if (!strcmp_P(cmd, PSTR("version"))) {
+      } else if (!strcmp(cmd, "help")) {
+        log->printf("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n");
+      } else if (!strcmp(cmd, "version")) {
         log->printf("%s\n", OpenRC4CL_VERSION);
-      } else if (!strcmp_P(cmd, PSTR("default"))) {
+      } else if (!strcmp(cmd, "default")) {
 		nvs_erase();
 		ESP.restart();
-      } else if (!strcmp_P(cmd, PSTR("reboot"))) {
+      } else if (!strcmp(cmd, "reboot")) {
 		ESP.restart();
       } else {
         log->printf("Unknown command:%s\n", cmd);
@@ -447,7 +444,7 @@ class CMD { // CoMmanD interpreter
       const int maxp = 6;
 	  NVS_PARAM* p = nvs->nvsTab(); 
       for (int i = 0; i < nvs->nrParams(); i++) {
-        if (strcmp_P(p->name, PSTR("passwd"))) {
+        if (strcmp(p->name, passwdCmd)) {
 		  if (nvs->isStr(p->name)) { 
 		    log->printf("%s=%s ", p->name, p->str_p->c_str());
 		  } else {
@@ -458,6 +455,7 @@ class CMD { // CoMmanD interpreter
 		p++;
       }
 	}
+	static constexpr char* passwdCmd = "passwd";
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];
     int length = 0;  // length of line received so far

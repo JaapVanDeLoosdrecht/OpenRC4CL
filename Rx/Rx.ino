@@ -15,7 +15,7 @@
 // #include <secret.h>
 
 /* 
-Rx OpenRC4CL 25 March 2026
+Rx OpenRC4CL 26 March 2026
 
 MIT license
 
@@ -49,15 +49,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMDs
 #endif
 
-#define PSTR(s) s 
-
-// user settings
-const int maxFlight = 10*60;                // seconds, if maxTime is not in used.
-const int nrWarns = 2;                      // number if throttle warnings before stopping engine
-const int stopEngine = 1;                   // nr of secs to stop engine after last warning
-const bool escWarning = false;              // if true issue Esc warning of end of flight
-const int minThrottle = TxMidPulse;         // min throttle value to start timer, 0 = no restart timer 
-// hardware
+// pin layout
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinCh1 = PIN_NOT_USED;            // A1; 
@@ -65,19 +57,24 @@ const int pinVBatt = A2;
 const int pinCh2 = PIN_NOT_USED;            // A4; 
 const int pinCh3 = PIN_NOT_USED;            // A5; 
 const int pinCh4 = PIN_NOT_USED;            // A6; 
-// todo const int pinExternLed = D10; 
+// const int pinExternLed = D10;            // todo
+// system
+const unsigned long FAILSAFE_TIME = 500;    // ms
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
 const int lipoDivR2 = 100000;               // R2 lipo voltage divider
-// system
-const int NR_PACKETS = 100;                 // nr packets for telemetry and logging
-const unsigned long FAILSAFE_TIME = 500;    // ms
 // user settings (NVS params)
 String devName = "Rx-OpenRC4CL";
 String macPeer(macTx); 
 String passwd = "123";
 int wifiChan = 6;                           // [1..13]
-int maxTime = maxFlight;                    
+int maxTime = 10*60;                    
 int vBattLow = 3500;
+int maxFlight = 10*60;                      // seconds, if maxTime is not in used.
+int escWarning = 0;                         // [0,1] if 1 issue Esc warning of end of flight
+int nrWarns = 2;                            // number of warnings before stopping engine
+int stopEngine = 1;                         // nr of secs to stop engine after last warning
+int minThrottle = TxMidPulse;               // min throttle value to start timer, 0 = no restart timer 
+int nrPackets = 100;                        // nr packets (50 Hz) to receive for telemetry and logging
 
 NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 16; 
@@ -88,6 +85,11 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_INT(wifiChan, 1, 13));
   nvs->add(NVS_INT(maxTime, 10, maxFlight));
   nvs->add(NVS_INT(vBattLow, 3000, 8*4350));
+  nvs->add(NVS_INT(maxFlight, 10, 10*60));
+  nvs->add(NVS_INT(escWarning, 0, 1));
+  nvs->add(NVS_INT(nrWarns, 0, 10));
+  nvs->add(NVS_INT(minThrottle, TxMinPulse, TxMaxPulse));
+  nvs->add(NVS_INT(nrPackets, 50, 1000));
   return nvs;
 }
 
@@ -117,16 +119,16 @@ public:
     }
   }
   void telemetry(struct TxData &rc, unsigned long now) {
-    if ((count == -1) && (rc.id % NR_PACKETS != 0)) return;  // new Rx or Tx, sync id to multiple of NR_PACKETS
-    if (++count >= NR_PACKETS) {  
-      int rsi =  max(NR_PACKETS-packetsLost,0);
+    if ((count == -1) && (rc.id % nrPackets != 0)) return;  // new Rx or Tx, sync id to multiple of nrPackets
+    if (++count >= nrPackets) {  
+      int rsi =  max(nrPackets-packetsLost,0);
       struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), vBattLow, rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
-      int avg_time = (int)(now - timeLast1st) / NR_PACKETS;
-      logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d id:%d\n", 
-                      status.str(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, timer.secondsLeft(), 
-                      maxSecs, totalLost, errors, rc.id);
+      int avg_time = (int)(now - timeLast1st) / nrPackets;
+      logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d\n", 
+                      status.str(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, 
+                      timer.secondsLeft(), maxSecs, totalLost, errors);
       count = packetsLost = 0;
       timeLast1st = now;
     }
@@ -194,5 +196,5 @@ void setup() {
 void loop() {
   rx->checkFailsafe();
   rx->statusUpdate();
-  cmd->update();  // todo lower freq like 5 hz??
+  cmd->update(); 
 }

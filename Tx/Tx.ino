@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 24 March 2026
+TX OpenRC4CL 26 March 2026
 
 MIT license
 
@@ -33,9 +33,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 char* macRx = "00:00:00:00:00:00";          // modify with your mac address of Rx or use serial CMDs
 #endif
 
-#define PSTR(s) s 
-
-// hardware
+// pin layout
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinVBatt = A2;                      
@@ -47,12 +45,12 @@ const int pinLeftCh2 = PIN_NOT_USED;        // D7;
 const int pinRightCh2 = PIN_NOT_USED;       // D6;
 const int pinCh3 = PIN_NOT_USED;            // A5; 
 const int pinCh4 = PIN_NOT_USED;            // A6; 
-// todo const int pinExternLed = D10; 
-const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
-const int lipoDivR2 = 10000;                // R2 lipo voltage divider
+// const int pinExternLed = D10;            // todo
 // system
 const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no overleap with TH
 const int deadBandMin = -deadBandMax;    
+const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
+const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 // user settings (NVS params)
 String devName = "Tx-OpenRC4CL";
 String macPeer(macRx); 
@@ -60,7 +58,7 @@ String passwd = "123";
 int wifiChan = 6;                           // [1..13]
 int deadBand = 0;                           // for TH low
 int txBattLow = 3500;                       // min voltage for Tx lipo
-int nrWarns = 3;                            // number beeps if Tx/RxBattLow and if timer is expired number throttle warnings before stopping engine
+int nrWarns = 3;                            // number beeps if TxBattLow and if timer is expired number throttle warnings before stopping engine
 int stopEngine = 4;                         // if timer is expired number seconds to stop engine after last warning
 
 NVS* buildNVS(Logger *logger) {
@@ -118,9 +116,9 @@ public:
     } else {
       status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
-    logger->printf("[Tx:%s bat:%d thr:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d id:%d]\n", 
+    logger->printf("[Tx:%s bat:%d thr:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d]\n", 
                    status.str(), txBatt.read(), readThrottle(), errors, 
-                   Status::val2str(tel.status), tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors, tel.id);
+                   Status::val2str(tel.status), tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors);
   }
   void statusUpdate() { 
     if (!endFlight) {
@@ -154,7 +152,7 @@ private:
   Led led{pinLed, status.pulse(), true};  
   Beep beep{pinBeep, status.pulse()};
   bool connected = false, endFlight = false, beepEndFlight = false;
-  int id = 0, lastId = 0, errors = 0;  // #errors = #send + #checksum
+  int id = 0, lastId = 0, errors = 0;      // #errors = #send + #checksum
   int warnEndFlight = nrWarns * Status::pulseTab[Status::EndFlight]/1000 + stopEngine;
 };
 
@@ -185,6 +183,6 @@ void setup() {
 void loop() {
   tx->sendTx();
   tx->statusUpdate();
-  cmd->update();  // todo lower freq like 5 hz??
-  delay(15);  // some headroom to have at least 50Hz
+  cmd->update(); 
+  delay(20); // 50Hz
 }
