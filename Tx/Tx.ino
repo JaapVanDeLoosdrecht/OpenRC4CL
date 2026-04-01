@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 26 March 2026
+TX OpenRC4CL 1 April 2026
 
 MIT license
 
@@ -33,19 +33,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 char* macRx = "00:00:00:00:00:00";          // modify with your mac address of Rx or use serial CMDs
 #endif
 
-// pin layout
-const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
-const int pinThrottle = A0;
-const int pinVBatt = A2;                      
-const int pinThrottleHold = D3;
-const int pinBeep = D4;   
-const int pinLeftCh1 = PIN_NOT_USED;        // D5;
-const int pinRightCh1 = PIN_NOT_USED;       // D6;
-const int pinLeftCh2 = PIN_NOT_USED;        // D7;
-const int pinRightCh2 = PIN_NOT_USED;       // D6;
-const int pinCh3 = PIN_NOT_USED;            // A5; 
-const int pinCh4 = PIN_NOT_USED;            // A6; 
-// const int pinExternLed = D10;            // todo
 // system
 const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no overleap with TH
 const int deadBandMin = -deadBandMax;    
@@ -55,6 +42,7 @@ const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 String devName = "Tx-OpenRC4CL";
 String macPeer(macRx); 
 String passwd = "123";
+String date = buildDate();
 int wifiChan = 6;                           // [1..13]
 int deadBand = 0;                           // for TH low
 int txBattLow = 3500;                       // min voltage for Tx lipo
@@ -67,6 +55,7 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_STR(devName));
   nvs->add(NVS_STR(macPeer));
   nvs->add(NVS_STR(passwd));
+  nvs->add(NVS_STR(date));
   nvs->add(NVS_INT(wifiChan, 1, 13));
   nvs->add(NVS_INT(deadBand, deadBandMin, deadBandMax));  // deadband delta for throttle
   nvs->add(NVS_INT(txBattLow, 3000, 4350));
@@ -144,7 +133,7 @@ private:
   Potmeter throttle{pinThrottle};
   Switch hold{pinThrottleHold};
   Switch chan1{pinLeftCh1, pinRightCh1};
-  Switch chan2{pinLeftCh2};
+  Potmeter chan2{pinCh2};
   Potmeter chan3{pinCh3};
   Potmeter chan4{pinCh4};
   VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};

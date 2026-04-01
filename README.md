@@ -5,6 +5,8 @@ Control Line (CL), also called U-Control, is a way of controlling model airplane
 Low-cost DIY project for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
 Uses the ESP-NOW protocol transmitted via the 2.4 GHz Wi-Fi band.
 
+One PCB for Tx, Rx and Timer.
+
 The software is released as opensource under the MIT license.
 
 Note this project is Work In Progress and is developed for ESP32 C6, does not need external antennas.
@@ -27,8 +29,9 @@ Tx channels:
 
 - 0: throttle potmeter
 - 1: 3 position switch
-- 2: 3 position switch
+- 2: potmeter
 - 3: potmeter
+- 4: potmeter
 
 Rx servo channels:
 
@@ -36,6 +39,7 @@ Rx servo channels:
 - 1: servo 1
 - 2: servo 2
 - 3: servo 3
+- 4: servo 4
 
 Special functions:
 
@@ -45,44 +49,16 @@ Special functions:
   initiate throttle warning (like CLTimer) followed by stop engine and hold servos in last position
 - telemetry with VBatt, VBatt low and RSI 
 - throttle hold must be activated before Tx starts to transmit
-- logging status Tx/Rx by bluetooth to smartphone
+- logging status and listing/setting configuration parameters of Tx andRx by bluetooth to smartphone
+- Tx lipo voltage monitor (1 cell lipo) with low VBat warning
+- low VBatt warning voltage setting (input potmeter) [3000..8*4350] mV, max 8S LiHV
+- Rx ESC max 8S lipo voltage monitor, telemetry to Tx and beeper warning by low VBat
+- max flight time parameter
+- deadband throttle correction parameter
 - exponential throttle curve (in software configurable) [planned]
-- select wifi channel using 2 position dipswitch [planned]
 - softstart throttle option (in software configurable) [planned]
 
-Tx ESP32C6 inputs:
-
-- throttle (analog input potmeter)
-- chan1 (2 digital inputs for 3 position switch)
-- chan2 (2 digital inputs for 3 position switch)
-- chan3 (analog input potmeter)
-- throttle hold (digital input 2 position switch)
-- Tx lipo voltage monitor (1 cell lipo) (analog input)
-- max flight time (analog input potmeter)
-- select wifi chan (2 digital inputs for 2 position dipswitch)
-- deadband throttle correction (analog input potmeter)
-
-Tx ESP32C6 outputs:
-
-- status led (digital output)
-- beeper (digital output)
-
-Rx ESP32C6 inputs:
-
-- low VBatt warning voltage setting (input potmeter) [3000..8*4350] mV, max 8S LiHV
-- 8S lipo voltage monitor (input)
-
-Rx ESP32C6 outputs:
-
-- throttle (analoge servo output)
-- servo 1  (analoge servo output)
-- servo 2  (analoge servo output)
-- servo 3  (analoge servo output)
-- status led (digital output)
-- beeper (digital output)
-
 Status codes for led and beeper (blink pulse in ms):
-
 - Ok = 0 (off)
 - WaitThrHold = 1000
 - WaitConnection = 2000

@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 26 March 2026
+Utils for OpenRC4CL 1 April 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "0.1.6"; 
+const char *OpenRC4CL_VERSION = "1.0.7"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -36,6 +36,20 @@ const char *OpenRC4CL_VERSION = "0.1.6";
 #include <ESP32Servo.h>
 #include "ESP32C6_back_side_pins.h"
 #include <BLESerial.h>
+
+// pin layout for PCB
+const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
+const int pinThrottle = A0;
+const int pinVBatt = A2;                      
+const int pinThrottleHold = D3;
+const int pinBeep = D6;   
+const int pinCh1 = A1;                      // Rx chan1 servo
+const int pinLeftCh1 = D4;                  // Tx chan1 3-position switch
+const int pinRightCh1 = D5;
+const int pinCh2 = A4;
+const int pinCh3 = A5; 
+const int pinCh4 = A6; 
+// const int pinExternLed = D10;            // todo
 
 BLESerial<> SerialBLE;  // make SerialBLE global accesable like Serial, use Serial Bluetooth Terminal App (Google play)
 extern BLESerial<> SerialBLE;  
@@ -62,6 +76,13 @@ const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
+
+String buildDate() {
+  char month[4];
+  int day, year;
+  sscanf(__DATE__, "%s %d %d", month, &day, &year);
+  return String(day) + String(month) + String(year-2000);
+}
 
 int avgAnalogMilliVolts(int pin, int nrSamples) {
   if (pin == PIN_NOT_USED) return 0; 
@@ -374,46 +395,17 @@ class CMD { // CoMmanD interpreter
     }
     void exec(char *cmdline) {
       char *cmd = strsep(&cmdline, " ");
-      if (not chk_passwd) {
-        chk_passwd = nvs->readStr(passwdCmd) == String(cmd); 
-        (chk_passwd) ? listCmd() : log->printf("invalid password!\n");
-      } else if (!strcmp(cmd, "lock")) {
-		chk_passwd = false;
-      } else if (!strcmp(cmd, "set")) {
-        char* param = strsep(&cmdline, " ");
-		if (nvs->isParam(param)) { 
-		  if (nvs->isStr(param)) {
-            Serial.printf("set %s %s\n", param, cmdline);
-            nvs->writeStr(param, cmdline);
-            log->printf("%s=%s\n", param, cmdline);
-		  } else {
-		    if (!param || !is_digits(cmdline)) { log->printf("invalid command\n"); return; }
-            int val = atoi(cmdline);
-            nvs->writeInt(param, val);
-            log->printf("%s=%d\n", param, val);
-		  }
-		}
-      } else if (!strcmp(cmd, "get")) {
-		if (!cmdline) { log->printf("invalid command\n"); return; }
-		if (nvs->isStr(cmdline)) {
-          log->printf("%s=%s\n", cmdline, nvs->readStr(cmdline).c_str());
-		} else {
-          log->printf("%s=%d\n", cmdline, nvs->readInt(cmdline));
-		}
-      } else if (!strcmp(cmd, "list")) {
-		listCmd();
-      } else if (!strcmp(cmd, "help")) {
+      if (not chk_passwd) passwd(cmd);
+	  else if (!strcmp(cmd, "lock")) chk_passwd = false;
+      else if (!strcmp(cmd, "set")) set(cmdline);
+      else if (!strcmp(cmd, "get")) get(cmdline);
+      else if (!strcmp(cmd, "list")) list();
+      else if (!strcmp(cmd, "help")) 
         log->printf("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n");
-      } else if (!strcmp(cmd, "version")) {
-        log->printf("%s\n", OpenRC4CL_VERSION);
-      } else if (!strcmp(cmd, "default")) {
-		nvs_erase();
-		ESP.restart();
-      } else if (!strcmp(cmd, "reboot")) {
-		ESP.restart();
-      } else {
-        log->printf("Unknown command:%s\n", cmd);
-      }
+      else if (!strcmp(cmd, "version")) log->printf("%s\n", OpenRC4CL_VERSION);
+      else if (!strcmp(cmd, "default")) {	nvs_erase(); ESP.restart(); }
+      else if (!strcmp(cmd, "reboot")) ESP.restart();
+      else log->printf("Unknown command:%s\n", cmd);
     }
     void update() {
       int data;
@@ -440,7 +432,34 @@ class CMD { // CoMmanD interpreter
       }
       return true;
 	}
-    void listCmd() {
+	void passwd(char *cmd) {
+      chk_passwd = nvs->readStr(passwdCmd) == String(cmd); 
+      (chk_passwd) ? list() : log->printf("invalid password!\n");
+    }
+	void set(char *cmdline) {
+      char* param = strsep(&cmdline, " ");
+	  if (nvs->isParam(param)) { 
+		if (nvs->isStr(param)) {
+          Serial.printf("set %s %s\n", param, cmdline);
+          nvs->writeStr(param, cmdline);
+          log->printf("%s=%s\n", param, cmdline);
+		} else {
+		  if (!param || !is_digits(cmdline)) { log->printf("invalid command\n"); return; }
+          int val = atoi(cmdline);
+          nvs->writeInt(param, val);
+          log->printf("%s=%d\n", param, val);
+		}
+	  }
+	}
+	void get(char *cmdline) {
+	  if (!cmdline) { log->printf("invalid command\n"); return; }
+	  if (nvs->isStr(cmdline)) {
+        log->printf("%s=%s\n", cmdline, nvs->readStr(cmdline).c_str());
+	  } else {
+        log->printf("%s=%d\n", cmdline, nvs->readInt(cmdline));
+	  }
+	}
+    void list() {
       const int maxp = 6;
 	  NVS_PARAM* p = nvs->nvsTab(); 
       for (int i = 0; i < nvs->nrParams(); i++) {

@@ -1,9 +1,9 @@
 PCB:
 - orientatie internal antenna = left next to usb
 - for Tx:
-  - from 3V C6 to 3V/5V
-  - from +TxBatt to +VBatt
-    from TxBatt + and - to + and - on bat C6
+  - from 3V C6 to + line (left side of diode)
+  - from VBat+ to Bat+ C6
+    (from VBat- to + bat- C6, only if usb charing is required)
 - one PCB for Tx, Rx and Timer
 - Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
 - Antenna
@@ -38,3 +38,6 @@ PCB checks:
   view both top and bottom side
 - orientation diode
 - print PCB and check spacing components
+
+3D printed housing:
+- OnShape or Fusion360 for design

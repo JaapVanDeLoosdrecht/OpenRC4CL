@@ -1,21 +1,5 @@
-// #include <ESP32C6_back_side_pins.h>
-// #include <OpenRC4CL_util.h>
-// #include <secret.h>
-
-// #include <ESP32C6_back_side_pins.h>
-// #include <OpenRC4CL_util.h>
-// #include <secret.h>
-
-// #include <ESP32C6_back_side_pins.h>
-// #include <OpenRC4CL_util.h>
-// #include <secret.h>
-
-// #include <ESP32C6_back_side_pins.h>
-// #include <OpenRC4CL_util.h>
-// #include <secret.h>
-
 /* 
-Rx OpenRC4CL 26 March 2026
+Rx OpenRC4CL 1 April 2026
 
 MIT license
 
@@ -49,15 +33,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMDs
 #endif
 
-// pin layout
-const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
-const int pinThrottle = A0;
-const int pinCh1 = PIN_NOT_USED;            // A1; 
-const int pinVBatt = A2;                    
-const int pinCh2 = PIN_NOT_USED;            // A4; 
-const int pinCh3 = PIN_NOT_USED;            // A5; 
-const int pinCh4 = PIN_NOT_USED;            // A6; 
-// const int pinExternLed = D10;            // todo
 // system
 const unsigned long FAILSAFE_TIME = 500;    // ms
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
@@ -66,6 +41,7 @@ const int lipoDivR2 = 100000;               // R2 lipo voltage divider
 String devName = "Rx-OpenRC4CL";
 String macPeer(macTx); 
 String passwd = "123";
+String date = buildDate();
 int wifiChan = 6;                           // [1..13]
 int maxTime = 10*60;                    
 int vBattLow = 3500;
@@ -82,6 +58,7 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_STR(devName));
   nvs->add(NVS_STR(macPeer));
   nvs->add(NVS_STR(passwd));
+  nvs->add(NVS_STR(date));
   nvs->add(NVS_INT(wifiChan, 1, 13));
   nvs->add(NVS_INT(maxTime, 10, maxFlight));
   nvs->add(NVS_INT(vBattLow, 3000, 8*4350));

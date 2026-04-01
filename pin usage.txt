@@ -1,181 +1,57 @@
 Pin usage
-NOTE: Tx has 3.3V servo inputs, Rx 5V servo outputs
-Idea: 
-- check size vias for C6 and VBatt, and for diode check size and type
-- use HASL
-- add copper/ground fill?? (tab fabricate)
-- import design rules
-- one PCB for Tx, Rx and Timer
-- 1st PCB use 1S lipo balance connector to connect to TxBatt and 
-  make diode removable and use headers for C6
-- no angeled pins (servo or vbatt) for Tx but solder servo wires to keep print flat
-- no audio connector on PCB
-- TH and 3pos switches are Tx only and can be vias instead of 3pins?
-- Timer: use TH for button and SWRL1/2 for External led on Timer
-- BAT- connecyted to GND
-  IAO ESP32C6, GND (in the 7*2 pins) and BAT- (on the backside) is actually connected together.
-  Safe to tie grounds together, you can safely reference BAT- to any GND point on your PCB.
-  But you cannot bypass the BAT pads for charging. If you want to use the onboard charger, 
-  you must route the battery through the bottom BAT pads.
-  
-PCB checks:
-- Use ENIG
-- Vias for connecting wires are pins must haave hole 1mm and ring thickness 0.5mm
-- Click on Via shows all connected wires and other vias
-- add some mounting holes
-- Tx: don't use angeled connectors, 
-  solder servo wires in order to keep height low
-- solder C6 with some extra clearance betweeb PCB to avoid shorcut or use tape
-- idea 4 via in corners for mounting hole
-- at least 0.5 mm from outside borders, 1mm if round off corner edges (v-scoring?) of PCB
-- design rules check
-- zoom in and check if all connections are present
-  view both top and bottom side
-- orientation diode
-- order R1 and R2
-- print PCB and check spacing components
-
-gips
-software en PCB
-Telemetrie BT  foto
-
-Ik zit nog steeds in het gips, dus nog geen vliegen of bouwen.
-Wel software voor OpenRC4CL verder ontwikkeld: 
-- Telemetrie wordt naar smartphone gestuurd over bluetooth
-  oa RSI (receiver strength indication) en lipo spannning.
-- Via mobiel kunnen ook parameters worden ingesteld, beveiligt mb een password.
-  Na wijzing worden deze parameters opgeslagen op mobiel.
-Verder eerste ontwerp voor PCB (printplaatje) gemaakt.
 
 -----------------------------------------------------------------------
 Pin usage PCB design:
 Rx
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
-- A0: chan1 (output servo)
-- A1: throttle=chan0 (output servo)
+- A0: throttle=chan0 (output servo)
+- A1: chan1 (output servo)
 - A2: VBatt 8S lipo voltage monitor (input)
-- D3:             (Note: A3 does NOT work)
-- D4:             (optional beeper? (output))
+- D3:             
+- D4:            
 - D5:
-- D6:
+- D6: beeper (output)
 - D7:
 - D8:
 - D9: 
 - D10:
-- A4: chan2 (optional, output servo)
-- A5: chan3 (optional, output servo)
-- A6: chan4 (optional, output servo)
-
-Tx:
-- LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
-- A0: 
-- A1: throttle=chan0 (input potmeter)
-- A2: Tx lipo voltage monitor (1 cell lipo) (input)
-- D3: beeper (output)
-- D4: throttle hold (input switch)
-- D5: leftCh1  (input 3-pos switch)
-- D6: rightCh1 (input 3-pos switch)
-- D7: rightCh2 (input 3-pos switch)
-- D8: leftCh2  (input 3-pos switch)
-- D9: 
-- D10: 
-- A4: 
-- A5: chan3 (input potmeter)
-- A6: chan4 (input potmeter)
-
-CLTimer:
-- LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
-- A0: 
-- A1: throttle=chan0 (output servo)
-- A2: Tx lipo voltage monitor (1 cell lipo) (input)
-- D3: 
-- D4: Start/stop button (same pin as TH)
-- D5
-- D6
-- D7
-- D8
-- D9: 
-- D10: External led (optional)
-- A4: 
-- A5: 
-- A6: 
-
-Components on PCB:
-- C6
-- R1 and R2
-- beeper (Tx and Timer)
-- TH (Tx, servo or 2pin or 2vias 'next to' chan0)
-- chan [0..4] 5 x servo 
-- 4 vias for 2 x 3 Pos switch (Tx) (or 2 x servo), are soldered in handle
-- vbatt (Rx and Timer) = 1S lipo balancer connector, vbatt Tx can be on PCB with jumper
-- diode (Rx and Timer)
-- 2pin (can be shared with VBatt Rx/Timer or vias) lipo for Tx, no need for connector on/off switch TX 2pin or servo
-- vias for external led
-
------------------------------------------------------------------------
-Pin usage last software:
-Rx:
-- LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
-- A0: throttle=chan0 (output servo)
-- A1: chan1 (output servo)
-- A2: VBatt 8S lipo voltage monitor (input)
-- D3:             (Note: A3 does NOT work)
-- D4:             (optional beeper? (output))
-- D5:
-- D6:
-- D7:
-- D8:
-- D9: 
-- D10: External led (optional)
-- A4: chan2 (optional, output servo)
-- A5: chan3 (optional, output servo)
-- A6: chan4 (optional, output servo)
+- A4: chan2 (output servo)
+- A5: chan3 (output servo)
+- A6: chan4 (optional output servo, no PCM pad)
 
 Tx:
 - LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
 - A0: throttle=chan0 (input potmeter)
 - A1: 
 - A2: Tx lipo voltage monitor (1 cell lipo) (input)
-- D3: throttle hold (input switch)
-- D4: beeper (output)
-- D5: leftCh1  (input 3-pos switch)
-- D6: rightCh1 (input 3-pos switch)
-- D7: leftCh2  (optional, input 3-pos switch)
-- D8: rightCh2 (optional, input 3-pos switch)
+- D4: throttle hold (input switch)
+- D4: leftCh1  (input 3-pos switch)
+- D5: rightCh1 (input 3-pos switch)
+- D6: Throttle Hold (output)
+- D7: beeper (output)
+- D8:
 - D9: 
-- D10: External led (optional)
-- A4: 
-- A5: chan3 (optional, input potmeter)
-- A6: chan4 (optional, input potmeter)
+- D10:
+- A4: chan2 (input potmeter)
+- A5: chan3 (input potmeter)
+- A6: chan4 (optional output servo, no PCM pad)
 
 CLTimer:
 - LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
 - A0: throttle=chan0 (output servo)
 - A1: 
 - A2: Tx lipo voltage monitor (1 cell lipo) (input)
-- D3: Start/stop button (same pin as TH)
-- D4: 
+- D3: 
+- D4
 - D5
-- D6
-- D7
+- D6: start/stop button (input)
+- D7: beeper (output)
 - D8
 - D9: 
-- D10: External led (optional)
+- D10:
 - A4: 
 - A5: 
 - A6: 
-
-Components on PCB:
-- C6
-- R1 and R2
-- beeper (Tx and Timer)
-- TH (Tx, servo or 2pin or 2vias 'next to' chan0)
-- chan [0..4] 5 x servo 
-- 4 vias for 2 x 3 Pos switch (Tx) (or 2 x servo), are soldered in handle
-- vbatt (Rx and Timer) = 1S lipo balancer connector, vbatt Tx can be on PCB with jumper
-- diode (Rx and Timer)
-- 2pin (can be shared with VBatt Rx/Timer or vias) lipo for Tx, no need for connector on/off switch TX 2pin or servo
-- vias for external led
 
 -----------------------------------------------------------------------
 Pin usage Prototype board
