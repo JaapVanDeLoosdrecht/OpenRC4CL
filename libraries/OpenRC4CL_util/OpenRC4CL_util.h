@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 1 April 2026
+Utils for OpenRC4CL 2 April 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.7"; 
+const char *OpenRC4CL_VERSION = "1.0.8"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -237,7 +237,7 @@ protected:
   int _pin, _min, _max, _mid, _fail, _last; 
 };
 
-class Throttle : public RcServo { 
+class Throttle : public RcServo { // always [TxMinPulse..TxMaxPulse]
 public:
   Throttle(int pin, RcTimer *rctimer, int minThrottle, int maxFlightSecs, bool escWarning,
            int nrWarns=2, int stopEngine=5, bool reverse=false) : 
@@ -308,11 +308,10 @@ private:
   char *_buf = 0; int _max_buf;
 };
 
-// Non Volatile Storage
 struct NVS_PARAM { char* name; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
 #define NVS_INT(p, min, max) {#p, PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
 #define NVS_STR(p) {#p, PT_STR, 0, 0, 0, 0, &p, p.c_str()}
-class NVS {  
+class NVS {  // Non Volatile Storage
 public:
   NVS(const int max_ps, Logger *logger) { 
     max_params = max_ps;
@@ -337,7 +336,7 @@ public:
   bool isParam(char* name) { return getParam(name); }
   bool isInt(char* name) { return getParam(name)->p_type == PT_I32; };
   bool isStr(char* name) { return getParam(name)->p_type == PT_STR; };
-  int readInt(char* name) {
+  int readInt(char* name) { 
     NVS_PARAM* p = getParam(name);
     return (p) ? *(p->int_p) : 0; 
   }
@@ -388,9 +387,9 @@ class CMD { // CoMmanD interpreter
   public:
     CMD(NVS* _nvs, Logger *logger) { 
       nvs = _nvs;
+      log = logger;
 	  tab = nvs->nvsTab(); 
       nr_params = nvs->nrParams();
-      log = logger;
       Serial.printf("%s=%s\n", passwdCmd, nvs->readStr(passwdCmd)); // Note log passwd to console only!
     }
     void exec(char *cmdline) {
@@ -400,10 +399,9 @@ class CMD { // CoMmanD interpreter
       else if (!strcmp(cmd, "set")) set(cmdline);
       else if (!strcmp(cmd, "get")) get(cmdline);
       else if (!strcmp(cmd, "list")) list();
-      else if (!strcmp(cmd, "help")) 
-        log->printf("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n");
+      else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n");
       else if (!strcmp(cmd, "version")) log->printf("%s\n", OpenRC4CL_VERSION);
-      else if (!strcmp(cmd, "default")) {	nvs_erase(); ESP.restart(); }
+      else if (!strcmp(cmd, "default")) { nvs_erase(); ESP.restart(); }
       else if (!strcmp(cmd, "reboot")) ESP.restart();
       else log->printf("Unknown command:%s\n", cmd);
     }
@@ -413,16 +411,16 @@ class CMD { // CoMmanD interpreter
       if (SerialBLE.available()) { data = SerialBLE.read(); read = true; } 
       else if (Serial.available()) { data = Serial.read(); read = true; }
       if (read) {
-        if (data == '\r') {
+        if (data == '\r') {          // interpret
           buffer[length] = '\0';     // properly terminate the string
-          if (length) exec(buffer);  // give to interpreter
+          if (length) exec(buffer);  
           length = 0;                // reset for next command
         } else if ((data != '\n') && (length < BUF_LENGTH - 1)) {  // discard \n
           buffer[length++] = data;   // buffer the incoming byte
         }
       }
     }
-  private:
+  protected:
     bool is_digits(const char *s) {
 	  while(isspace((unsigned char)*s)) s++;
       if (!s || !(*s)) return false;
@@ -474,10 +472,11 @@ class CMD { // CoMmanD interpreter
 		p++;
       }
 	}
-	static constexpr char* passwdCmd = "passwd";
+  private:
+    static constexpr char* passwdCmd = "passwd";
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];
-    int length = 0;  // length of line received so far
+    int length = 0;            // length of line received so far
     bool chk_passwd = false;
     NVS_PARAM* tab = 0;
     int nr_params = 0;

@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 1 April 2026
+TX OpenRC4CL 2 April 2026
 
 MIT license
 
@@ -52,6 +52,7 @@ int stopEngine = 4;                         // if timer is expired number second
 NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 16; 
   NVS* nvs = new NVS(max_nvs_params, logger); 
+  // nvs_erase();
   nvs->add(NVS_STR(devName));
   nvs->add(NVS_STR(macPeer));
   nvs->add(NVS_STR(passwd));
@@ -64,12 +65,11 @@ NVS* buildNVS(Logger *logger) {
   return nvs;
 }
 
-// global vars
-Logger *logger = 0; 
-
 class Tx : public RcPeer {
 public:
-  Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk): RcPeer(mac_rx, channel, iface, lmk) {}
+  Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log): RcPeer(mac_rx, channel, iface, lmk) {
+    logger = log;
+  }
   void wait4ThrHold() {
     logger->printf("[Tx] wait for throttle hold\n");
     status.value = Status::WaitThrHold;
@@ -77,18 +77,9 @@ public:
     logger->printf("[Tx] waiting for Rx\n");
     status.value = Status::WaitTxRx;
   }
-  int readThrottle() {
-    throttle.setMinMax(TxMinPulse + deadBand);  // deadBand can be changed by CMD
-    return (hold.readPos() == Thr_Hold) ? TxThrottleHoldPulse : throttle.read();
-  }
-  void sendTx() {
-    struct TxData rc{0, ++id, readThrottle(), chan1.read(), chan2.read(), chan3.read(), chan4.read()}; 
-    rc.checkSum = CheckSum(rc);
-    if (send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
-      lastId = id;
-    } else {
-      status.value = Status::Error; errors++;
-    }
+  void update() {
+    sendTx();
+    statusUpdate();
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {
     struct Telemetry tel = *(struct Telemetry *)data;
@@ -103,11 +94,26 @@ public:
       status.value = Status::Ok;                                                                                                                                                                                              ;
       beepEndFlight = false; // needed if Rx is reset after end of flight
     } else {
-      status.value = (txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
+      status.value = (txBatt.read() < txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
     }
     logger->printf("[Tx:%s bat:%d thr:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d]\n", 
                    status.str(), txBatt.read(), readThrottle(), errors, 
                    Status::val2str(tel.status), tel.vBat, tel.vBatLow, tel.rsi, tel.time_left, tel.totalLost, tel.errors);
+  }
+protected:
+  int readThrottle() {
+    throttle.setMinMax(TxMinPulse + deadBand);  // deadBand can be changed by CMD
+    return (hold.readPos() == Thr_Hold) ? TxThrottleHoldPulse : throttle.read();
+  }
+  void sendTx() {
+    struct TxData rc{0, ++id, readThrottle(), chan1.read(), chan2.read(), chan3.read(), chan4.read()}; 
+    rc.checkSum = CheckSum(rc);
+    if (send_data((uint8_t *)&rc, sizeof(rc)) || !connected) {   
+      lastId = id;
+    } else {
+      status.value = Status::Error; errors++;
+    }
+    statusUpdate();
   }
   void statusUpdate() { 
     if (!endFlight) {
@@ -143,22 +149,21 @@ private:
   bool connected = false, endFlight = false, beepEndFlight = false;
   int id = 0, lastId = 0, errors = 0;      // #errors = #send + #checksum
   int warnEndFlight = nrWarns * Status::pulseTab[Status::EndFlight]/1000 + stopEngine;
+  Logger *logger = 0;
 };
 
-Tx *tx = 0;  // initialisation must in setup due to changing pinModes to OUTPUT
-NVS *nvs = 0;
-CMD* cmd = 0;
+Tx *tx = 0;    // initialisation must be in setup due to changing pinModes to OUTPUT
+CMD* cmd = 0; 
 
 void setup() {
   Serial.begin(115200);
   SerialBLE.begin(devName); 
-  logger = new Logger;
-  // nvs_erase();
-  nvs = buildNVS(logger); 
+  Logger *logger = new Logger;    // Serial and BLE logger
+  NVS* nvs = buildNVS(logger);
   cmd = new CMD(nvs, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   while (!WiFi.STA.started()) delay(100);
-  tx = new Tx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr);
+  tx = new Tx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
@@ -169,9 +174,12 @@ void setup() {
   tx->wait4ThrHold();
 }
 
+const unsigned long msPol = 20;
+unsigned long next = millis() + msPol;
 void loop() {
-  tx->sendTx();
-  tx->statusUpdate();
-  cmd->update(); 
-  delay(20); // 50Hz
+  if (millis()-next > msPol) {  // function delay() will block onReceive
+    tx->update();
+    cmd->update();
+    next += msPol;
+  }
 }

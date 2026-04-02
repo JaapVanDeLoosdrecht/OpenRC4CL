@@ -1,12 +1,12 @@
 Todo:
-- loggin telemetry is every 2 secs, 1 is expected, also rsi=200??
-- bug Rx= EndOfFlight -> TX give TxBatLow
+- move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
+- test new software on prototype boards
 - add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
 - make better photos of protoboards and screenshot of BL logging
-- move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
 - ?? softstart option for CLtimer and combat handle (= startup ramp %)
   rampup time if starting from zero
 - exponential throttle curve
+- idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
 
 - sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
 - move repro to https://codeberg.org/??
@@ -18,7 +18,6 @@ CLTimer:
 - softstart option for CLtimer and combat handle (= startup ramp %)
   rampup time if starting from zero
 
-
 fase2:
 - order 
   - Tx lipos 
@@ -26,7 +25,8 @@ fase2:
   - prop balancer
   - longer CL lines
   - new balance board Junsi
-(chan 2/3/4 can be used for on/switch)
+- exponential throttle
+- note: chan 2/3/4 can be used for on/switch
 - pinExternLed D8/9/10? or use chan3?? or only led indicating bat connected?
 - this needed is only needed if rearranging order is needed
   Rename class Switch to SwitchDI and make SwitchAI
@@ -44,7 +44,6 @@ fase2:
 - use state machine to keep track of status and actions
 - new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
 - ?? add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
-- exponential throttle
 - soft mac address for Rx (and Tx??)
 - (paper display on TX)
 
@@ -62,7 +61,7 @@ fase2:
 )
 
 Changed:
-- sync version nrs PCB and SW like: PCB 1.0 = SW 1.0.xx
-- refactored CMD.exec
-- added build date to NVS
-- moved pin definitions to util.h (PCB dependent)
+- refactor Tx and Rx for logger, CMD and NVS
+- bug fix Rx= EndOfFlight -> TX give TxBatLow
+
+

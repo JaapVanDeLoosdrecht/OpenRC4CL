@@ -1,7 +1,5 @@
-Pin usage
-
 -----------------------------------------------------------------------
-Pin usage PCB design:
+Pin usage PCB design V1.0:
 Rx
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
 - A0: throttle=chan0 (output servo)
@@ -34,7 +32,7 @@ Tx:
 - D10:
 - A4: chan2 (input potmeter)
 - A5: chan3 (input potmeter)
-- A6: chan4 (optional output servo, no PCM pad)
+- A6: chan4 (optional input potmeter, no PCM pad)
 
 CLTimer:
 - LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
