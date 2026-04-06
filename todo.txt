@@ -1,10 +1,17 @@
 Todo:
-- move Tx vBattLow test to statusUpdate, in order to get warning beep if Tx is on and low batt and Tx is off
+- test with C6 devkit debugging on new breadboard, use wire or dipswitch for TH
 - test new software on prototype boards
-- add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
+  Rx: A0 thr, A2 vbat
+  Tx: A0 esc, A1 vbat, D3 TH, D8 beep
+- if Rx is exchanged only change in to macpeer in Tx is needed?
+  use special header to populate list (index??) name-model/tx macaddress
+  reboot afterwards
+- make list with peers to select from to bind??
+- ??? Tx: if no need for charge, can use 5V C6 pin for power??
 - make better photos of protoboards and screenshot of BL logging
 - ?? softstart option for CLtimer and combat handle (= startup ramp %)
   rampup time if starting from zero
+   most ESCs have a similar function
 - exponential throttle curve
 - idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
 
@@ -26,8 +33,14 @@ fase2:
   - longer CL lines
   - new balance board Junsi
 - exponential throttle
+- use state machine to keep track of status and actions
+- for documentation: differentiate between to thr warning systems
+  note warning are NOT synchronised (yet), a protocol is needed
+  - Tx: beep warning after maxTime expired
+  - Rx: esc warning before maxTime expires and kill engine at maxTime
 - note: chan 2/3/4 can be used for on/switch
 - pinExternLed D8/9/10? or use chan3?? or only led indicating bat connected?
+- add R1 and R2 to NVS, can be used for tuning V calib usig ohm meter
 - this needed is only needed if rearranging order is needed
   Rename class Switch to SwitchDI and make SwitchAI
   Note dangling middle=dangling 0V, L/R= 1.65V/3.3V, use Tx software to put in 'ascending order'
@@ -41,9 +54,7 @@ fase2:
 - Tx for all chans add 
   - offset middle position
   - min and max value
-- use state machine to keep track of status and actions
-- new Failsafe throttle implemenation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
-- ?? add beep warning:  no TH -> Rx on -> feedback telemetry -> Tx beep
+- new Failsafe throttle implementation: always for 2(?) sec toggle 0.5 sec to half power and than TH, no need for timer only wall clock
 - soft mac address for Rx (and Tx??)
 - (paper display on TX)
 
@@ -61,7 +72,94 @@ fase2:
 )
 
 Changed:
-- refactor Tx and Rx for logger, CMD and NVS
-- bug fix Rx= EndOfFlight -> TX give TxBatLow
 
 
+
+
+
+
+Idea for mac table (if bind with broadcast is not possible)
+
+class MAC_tab {
+public:
+  MAC_tab() {};  read from nms  (own space with name mac)
+  // not needed??  int nrElms() { return nr; }
+  int add(char* name, char* mac) {
+    // check max elems
+    tab[nr].name = strcpy(name); ?? check length smaller than max
+    tab[nr].mac = strcpy(mac); ??  check length exactly
+	add to nvs 
+    return nr++;
+  }
+  char* mac(char* name) {
+    find name in tab and return mac
+  }
+private:
+  struct MAC_ELM{ char name[11]; char mac[17]};
+  int nr = 0;
+  MAC_ELM tab[16];
+}
+
+
+Define a POD style class (or struct)
+To store an object as a blob, it must be trivially copyable (no pointers, no virtual methods, no dynamic memory).
+
+struct DeviceConfig {
+    uint32_t version;
+    int32_t threshold;
+    float gain;
+    bool enabled;
+};
+
+#include <Preferences.h>
+
+Preferences prefs;
+
+DeviceConfig config = {
+    .version = 1,
+    .threshold = 42,
+    .gain = 0.75f,
+    .enabled = true
+};
+
+void saveConfig(const DeviceConfig &cfg) {
+    prefs.begin("app", false);  // RW mode
+
+    prefs.putBytes("config", &cfg, sizeof(DeviceConfig));
+
+    prefs.end();
+}
+
+bool loadConfig(DeviceConfig &cfg) {
+    prefs.begin("app", true);  // read-only
+
+    size_t size = prefs.getBytesLength("config");
+    if (size != sizeof(DeviceConfig)) {
+        prefs.end();
+        return false;  // no valid config stored
+    }
+
+    prefs.getBytes("config", &cfg, sizeof(DeviceConfig));
+
+    prefs.end();
+    return true;
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    DeviceConfig loaded;
+
+    if (loadConfig(loaded)) {
+        Serial.println("Loaded config:");
+        Serial.printf("version=%u threshold=%d gain=%.2f enabled=%d\n",
+                      loaded.version, loaded.threshold,
+                      loaded.gain, loaded.enabled);
+    } else {
+        Serial.println("No valid config found, saving defaults...");
+        saveConfig(config);
+    }
+}
+
+void loop() {
+}

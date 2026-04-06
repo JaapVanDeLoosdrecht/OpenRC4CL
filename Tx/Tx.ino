@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 2 April 2026
+TX OpenRC4CL 3 April 2026
 
 MIT license
 
@@ -22,7 +22,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
-// Tx com5 white 1st usb 
+// Tx com5 (proto=8) white 1st usb 
+
+// #define PROTOBOARD
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -46,13 +48,12 @@ String date = buildDate();
 int wifiChan = 6;                           // [1..13]
 int deadBand = 0;                           // for TH low
 int txBattLow = 3500;                       // min voltage for Tx lipo
-int nrWarns = 3;                            // number beeps if TxBattLow and if timer is expired number throttle warnings before stopping engine
-int stopEngine = 4;                         // if timer is expired number seconds to stop engine after last warning
+int nrWarns = 3;                            // number beeps if TxBattLow or timer is expired number 
 
 NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 16; 
-  NVS* nvs = new NVS(max_nvs_params, logger); 
   // nvs_erase();
+  NVS* nvs = new NVS(max_nvs_params, logger); 
   nvs->add(NVS_STR(devName));
   nvs->add(NVS_STR(macPeer));
   nvs->add(NVS_STR(passwd));
@@ -61,15 +62,13 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_INT(deadBand, deadBandMin, deadBandMax));  // deadband delta for throttle
   nvs->add(NVS_INT(txBattLow, 3000, 4350));
   nvs->add(NVS_INT(nrWarns, 1, 10));
-  nvs->add(NVS_INT(stopEngine, 0, 30));
   return nvs;
 }
 
 class Tx : public RcPeer {
 public:
-  Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log): RcPeer(mac_rx, channel, iface, lmk) {
-    logger = log;
-  }
+  Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log):
+    RcPeer(mac_rx, channel, iface, lmk) { logger = log; }
   void wait4ThrHold() {
     logger->printf("[Tx] wait for throttle hold\n");
     status.value = Status::WaitThrHold;
@@ -77,10 +76,7 @@ public:
     logger->printf("[Tx] waiting for Rx\n");
     status.value = Status::WaitTxRx;
   }
-  void update() {
-    sendTx();
-    statusUpdate();
-  }
+  void update() { sendTx(); statusUpdate(); }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) {
     struct Telemetry tel = *(struct Telemetry *)data;
     if (CheckSum(tel) != tel.checkSum) { 
@@ -88,13 +84,16 @@ public:
       logger->printf("[Tx:%s bat:%d thr:%d err:%d]\n", status.str(), txBatt.read(), readThrottle(), errors);
       return;
     }
-    bool vBattLow = (tel.vBatLow > 0) && (tel.vBat < tel.vBatLow);
-    bool eot = tel.time_left < warnEndFlight;
-    if (!(endFlight = vBattLow || eot)) {
-      status.value = Status::Ok;                                                                                                                                                                                              ;
-      beepEndFlight = false; // needed if Rx is reset after end of flight
+    if (tel.status == Status::WaitThrHold) {
+      status.value = Status::WaitThrHold; 
     } else {
-      status.value = (txBatt.read() < txBattLow) ? Status::TxBattLow : (vBattLow) ? Status::VBattLow : Status::EndFlight;
+      bool vBattLow = (tel.vBat > vbatThr) && (tel.vBat < tel.vBatLow);
+      if (!(endFlight = vBattLow || (tel.time_left < 0))) {
+        status.value = Status::Ok;                                                                                                                                                                                              ;
+        beepEndFlight = false; // needed if Rx is reset after end of flight
+      } else {
+        status.value = (vBattLow) ? Status::VBattLow : Status::EndFlight;
+      }
     }
     logger->printf("[Tx:%s bat:%d thr:%d err:%d] [Rx:%s vBat:%d vLow:%d rsi:%d time:%d lost:%d err:%d]\n", 
                    status.str(), txBatt.read(), readThrottle(), errors, 
@@ -118,7 +117,7 @@ protected:
   void statusUpdate() { 
     if (!endFlight) {
       int txV = txBatt.read();                             // Check txV here because Rx could be off and so no telemetry
-      if (endFlight = (txV > 500) && (txV < txBattLow)) {  // tBatt ~ 0 if usb powered without lipo
+      if (endFlight = (txV > vbatThr) && (txV < txBattLow)) {  // tBatt ~ 0 if usb powered without lipo
         status.value = Status::TxBattLow;
       }
     }
@@ -136,19 +135,24 @@ protected:
   }
 private:
   static const Switch::Pos Thr_Hold = Switch::middle;
+  static const int vbatThr = 500;                          // if vbat not connected on Rx -> vbat < vbatThr
   Potmeter throttle{pinThrottle};
   Switch hold{pinThrottleHold};
   Switch chan1{pinLeftCh1, pinRightCh1};
   Potmeter chan2{pinCh2};
   Potmeter chan3{pinCh3};
   Potmeter chan4{pinCh4};
-  VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
+  #ifdef PROTOBOARD                                          // TODO
+  Beep beep{D8, status.pulse()}; 
+  VoltageDiv txBatt{A1, lipoDivR1, lipoDivR2}; 
+  #else
   Beep beep{pinBeep, status.pulse()};
+  VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
+  #endif
   bool connected = false, endFlight = false, beepEndFlight = false;
   int id = 0, lastId = 0, errors = 0;      // #errors = #send + #checksum
-  int warnEndFlight = nrWarns * Status::pulseTab[Status::EndFlight]/1000 + stopEngine;
   Logger *logger = 0;
 };
 

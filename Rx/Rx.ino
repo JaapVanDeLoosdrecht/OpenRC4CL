@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 2 April 2026
+Rx OpenRC4CL 3 April 2026
 
 MIT license
 
@@ -22,7 +22,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
-// RX com7 black 2nd usb
+// RX com7 (proto=9) black 2nd usb
+
+// #define PROTOBOARD
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -43,19 +45,18 @@ String macPeer(macTx);
 String passwd = "123";
 String date = buildDate();
 int wifiChan = 6;                           // [1..13]
-int maxTime = 5*60;                    
-int vBattLow = 3500;
-// int maxFlight = 10*60;                      // seconds, if maxTime is not in used.
-int escWarning = 0;                         // [0,1] if 1 issue Esc warning of end of flight
-int nrWarns = 2;                            // number of warnings before stopping engine
-int stopEngine = 1;                         // nr of secs to stop engine after last warning
+int maxTime = 5*60;                         // seconds
+int vBattLow = 3500;                        // mV
+int escWarn = 0;                            // [0,1] if 1 issue Esc warnings end stop engine at end of flight 
+int nrWarns = 3;                            // number of Esc warnings before stopping engine
+int stopEngine = 5;                         // nr of secs to stop engine after last Esc warning
 int minThrottle = TxMidPulse;               // min throttle value to start timer, 0 = no restart timer 
 int nrPackets = 100;                        // nr packets (50 Hz) to receive for telemetry and logging
 
 NVS* buildNVS(Logger *log) {
   const int max_nvs_params = 16; 
-  NVS* nvs = new NVS(max_nvs_params, log); 
   // nvs_erase();
+  NVS* nvs = new NVS(max_nvs_params, log); 
   nvs->add(NVS_STR(devName));
   nvs->add(NVS_STR(macPeer));
   nvs->add(NVS_STR(passwd));
@@ -63,9 +64,9 @@ NVS* buildNVS(Logger *log) {
   nvs->add(NVS_INT(wifiChan, 1, 13));
   nvs->add(NVS_INT(maxTime, 10, 10*60));
   nvs->add(NVS_INT(vBattLow, 3000, 8*4350));
-  // nvs->add(NVS_INT(maxFlight, 10, 10*60));
-  nvs->add(NVS_INT(escWarning, 0, 1));
+  nvs->add(NVS_INT(escWarn, 0, 1));
   nvs->add(NVS_INT(nrWarns, 0, 10));
+  nvs->add(NVS_INT(stopEngine, 0, 10));
   nvs->add(NVS_INT(minThrottle, TxMinPulse, TxMaxPulse));
   nvs->add(NVS_INT(nrPackets, 50, 1000));
   return nvs;
@@ -92,7 +93,7 @@ public:
         throttle.failsafe();
         chan1.failsafe(); chan2.failsafe(); chan3.failsafe();
         status.value = Status::Failsafe;
-        waitThrHold = true;                // reset from FailSafe with Th
+        waitThrHold = true;                // reset from FailSafe with TH
         logger->printf("FAILSAFE!!!!\n");
         timeLastTx = now;                  // another test in FAILSAFE_TIME
       }
@@ -121,20 +122,21 @@ protected:
     if ((count == -1) && (rc.id % nrPackets != 0)) return;  // new Rx or Tx, sync id to multiple of nrPackets
     if (++count >= nrPackets) {  
       int rsi = max(nrPackets-packetsLost,0);
+
       struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), vBattLow, rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / nrPackets;
       logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d\n", 
                       status.str(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, 
-                      timer.secondsLeft(), maxSecs, totalLost, errors);
+                      timer.secondsLeft(), maxTime, totalLost, errors);
       count = packetsLost = 0;
       timeLast1st = now;
     }
   }
 private:
   RcTimer timer{maxTime};
-  Throttle throttle{pinThrottle, &timer, minThrottle, maxTime, escWarning, nrWarns, stopEngine};
+  Throttle throttle{pinThrottle, &timer, minThrottle, maxTime, escWarn, nrWarns, stopEngine};
   RcServo chan1{pinCh1, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan2{pinCh2, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan3{pinCh3, TxMinPulse, TxMaxPulse, 0, -1};
@@ -144,7 +146,7 @@ private:
   Led led{pinLed, status.pulse(), true}; 
   bool connected = false, waitThrHold = true;
   unsigned long timeLastTx = 0, timeLast1st = 0;  // time last 1st packadge;
-  int maxSecs = -1, thrLast = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0, errors = 0;
+  int thrLast = -1, lastId = -1, count = -1, packetsLost = 0, totalLost = 0, errors = 0;
   Logger *logger = 0;
 };
 
