@@ -1,12 +1,17 @@
 PCB:
-- orientatie internal antenna = left next to usb
 - for Tx:
-  - from 3V C6 to + line (left side of diode)
-  - from VBat+ to Bat+ C6
-    (from VBat- to + bat- C6, only if usb charing is required)
+  - solder:
+    - from 3V C6 to + line (bottom left PCB, left side of diode)
+    - from left side R2 (=VBat+) to Bat+ C6, NOTE solder at same time as R2)
+      (from VBat- to Bat- C6, only if usb charing is required, todo check!!!)
+  - connect lipo to VBat connector
+- for Rx: 
+  - BEC MUST BE <= 5.5V!!!!!!
+  - solder diode 1N5819, cathode (stripe) to right
 - one PCB for Tx, Rx and Timer
 - Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
 - Antenna
+  orientatie internal antenna = left next to usb
   You may need to reduce the output power. For some reason, the supermini has issues running at max power, 
   which I believe is the default setting. There are a few potential issues with this device that can often 
   be resolved through configuration, including your specific problem. I suggest taking a look at a great video 
@@ -15,7 +20,7 @@ PCB:
   Try some of the mid-way power level settings, perhaps WIFI_POWER_11dBm, or WIFI_POWER_7dBm. 
   I suspect a lot of the product reviews that report faulty modules might have been resolvable by following these tips. 
   The chip antennas do work, but they are more directional than the PCB antennas; so, attention to the orientation of the device is recommend. 
-- Tx has 3.3V servo inputs, Rx 5V servo outputs
+- Tx has 3.3V servo inputs, Rx 5V (BEC) servo outputs
 - no angeled pins (servo or vbatt) for Tx but solder servo wires to keep print flat
 - Timer: use TH for button and beeper pin for External led if needed
 - BAT- connected to GND

@@ -22,11 +22,11 @@ Tx:
 - A0: throttle=chan0 (input potmeter)
 - A1: 
 - A2: Tx lipo voltage monitor (1 cell lipo) (input)
-- D4: throttle hold (input switch)                                                                                                                                                                                                   
+- D3: throttle hold (input switch)                                                                                                                                                                                                   
 - D4: leftCh1  (input 3-pos switch)
 - D5: rightCh1 (input 3-pos switch)
-- D6: Throttle Hold (output)
-- D7: beeper (output)
+- D6: beeper (output)
+- D7: 
 - D8:
 - D9: 
 - D10:

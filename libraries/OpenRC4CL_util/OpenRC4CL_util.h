@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 3 April 2026
+Utils for OpenRC4CL 19 April 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.9"; 
+const char *OpenRC4CL_VERSION = "1.0.10"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -41,8 +41,8 @@ const char *OpenRC4CL_VERSION = "1.0.9";
 const int pinLed = LED_BUILTIN;             // Note LED_BUILTIN is reversed on C6
 const int pinThrottle = A0;
 const int pinVBatt = A2;                      
-const int pinThrottleHold = D3;
-const int pinBeep = D6;   
+const int pinThrottleHold = D6;
+const int pinBeep = D7;
 const int pinCh1 = A1;                      // Rx chan1 servo
 const int pinLeftCh1 = D4;                  // Tx chan1 3-position switch
 const int pinRightCh1 = D5;

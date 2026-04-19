@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 3 April 2026
+TX OpenRC4CL 19 April 2026
 
 MIT license
 
@@ -137,7 +137,6 @@ private:
   static const Switch::Pos Thr_Hold = Switch::middle;
   static const int vbatThr = 500;                          // if vbat not connected on Rx -> vbat < vbatThr
   Potmeter throttle{pinThrottle};
-  Switch hold{pinThrottleHold};
   Switch chan1{pinLeftCh1, pinRightCh1};
   Potmeter chan2{pinCh2};
   Potmeter chan3{pinCh3};
@@ -145,11 +144,13 @@ private:
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
   #ifdef PROTOBOARD                                          // TODO
-  Beep beep{D8, status.pulse()}; 
-  VoltageDiv txBatt{A1, lipoDivR1, lipoDivR2}; 
+    Switch hold{D3};
+    Beep beep{D8, status.pulse()}; 
+    VoltageDiv txBatt{A1, lipoDivR1, lipoDivR2}; 
   #else
-  Beep beep{pinBeep, status.pulse()};
-  VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
+    Switch hold{pinThrottleHold};
+    Beep beep{pinBeep, status.pulse()};
+    VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
   #endif
   bool connected = false, endFlight = false, beepEndFlight = false;
   int id = 0, lastId = 0, errors = 0;      // #errors = #send + #checksum
