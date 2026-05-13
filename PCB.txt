@@ -1,13 +1,28 @@
 PCB:
-- for Tx:
-  - solder:
-    - from 3V C6 to + line (bottom left PCB, left side of diode)
-    - from left side R2 (=VBat+) to Bat+ C6, NOTE solder at same time as R2)
-      (from VBat- to Bat- C6, only if usb charing is required, todo check!!!)
-  - connect lipo to VBat connector
+- Tx (ESC = thr potmeter, C1 analog input, C2 digital switch, C3 'missuse as TH):
+  - order solder:
+    - R1 and R2, both 10K
+	- 3V jumper from 3V C6 to + line (bottom left PCB, left side of diode)
+	- TH jumper to C3
+	- D6 jumper to C2
+	- Red/Black wire from BP and GND to beeper
+	- VBat connector
+	- Red/Black wire from VBat to Bat on ESP32C6 bottom side
+	- ESP32C6 on headers on PCB
+	- 4 * angled servo connector
+  - connect lipo to VBat connector, NOTE for testing no more than 4.2V
+  - alternative connect A4 (MTMS) to C2 and A6 (MTCK) to C3 for having analog inputs
+    can use 3 pos switches using voltage divider
+	TH can be soldered to via TH
 - for Rx: 
-  - BEC MUST BE <= 5.5V!!!!!!
-  - solder diode 1N5819, cathode (stripe) to right
+  - BEC MUST BE 5V or 5.5V!!!!!!
+  - order solder:
+    - R1 10K and R2 100K (DO NOT mix up!)
+    - diode 1N5819, cathode (stripe) to right
+	- A4 (MTMS) to C2 and A6 (MTCK) to C3, MTMS and MTCK are on bottim side of ESP32C6
+	- VBat connector
+	- ESP32C6 on headers on PCB
+	- 4 * angled servo connector
 - one PCB for Tx, Rx and Timer
 - Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
 - Antenna

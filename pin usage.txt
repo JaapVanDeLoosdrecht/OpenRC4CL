@@ -8,7 +8,7 @@ Rx
 - D3:             
 - D4:            
 - D5:
-- D6: beeper (output)
+- D6:
 - D7:
 - D8:
 - D9: 
@@ -22,11 +22,11 @@ Tx:
 - A0: throttle=chan0 (input potmeter)
 - A1: 
 - A2: Tx lipo voltage monitor (1 cell lipo) (input)
-- D3: throttle hold (input switch)                                                                                                                                                                                                   
+- D3:                                                                                                                                                                                                    
 - D4: leftCh1  (input 3-pos switch)
 - D5: rightCh1 (input 3-pos switch)
-- D6: beeper (output)
-- D7: 
+- D6: throttle hold (input switch)
+- D7: beeper (output)
 - D8:
 - D9: 
 - D10:
@@ -54,7 +54,7 @@ CLTimer:
 -----------------------------------------------------------------------
 Pin usage Prototype board
 
-Rx:
+Rx: Prototype board
 - LED_BUILTIN: led Note LED_BUILTIN is reversed on C6
 - A0: throttle (output servo)
 - A1: chan1 (output servo)
@@ -71,7 +71,7 @@ Rx:
 - A5: low VBatt warning voltage or timer setting (input potmeter)
 - A6: 8S lipo voltage monitor (input)
 
-Tx:
+Tx: Prototype board
 - LED_BUILTIN: led: Note LED_BUILTIN is reversed on C6
 - A0: throttle (input potmeter)
 - A1: Tx lipo voltage monitor (1 cell lipo) (input)
@@ -95,12 +95,10 @@ Connection Tx <---> Hold/Throttle
 H = digital input with pullup R
 T = analog input
 
-4 pin audio   ---|---|---|--->
-function       -   H   T   +
-color		   B   R   Y   W
+4 pin audio   ---|---|---|--->   )---|---|---|---
+function       -   H   T   +       -   H   T   +
+color		   B   R   Y   W       B   R   Y   W
 			   
-NOTE: Thr Hold switch MUST be off when connecting!!??
-
 Phases in connecting:
  Tx || - | H | T | + ||
 	||-------------------------
@@ -140,3 +138,38 @@ HT4: everything connected right
   0V          <= 3.3V       +1-8S
   |___ R 10K ___|___ R 100K __| 
   
+
+------------------------------------------------------------------------
+crimping pin notes with Engineer PA-24 crimping tool:
+- first crimp electrial part and then isolation, note only strip small part
+- if needed for thin wires double electrial part
+- if needed make 'wings' for isolation parallel using front part of tool
+- lipo balancer: W1.3 and W1.6
+- servo: W1.3 and O1.4/O1.8 Note W and O
+
+-------------------------------------------------
+Tx PCB v1
+
+R cable       Black                       White          Red
+Audio cable   Blue        Red             Yellow         White
+               -          H                T              +
+
+               |          |                |              |
+               |          \                |              |
+               |           \         ______|_____         |
+               |__________|_________|            |________|
+			                        |____________|
+
+Throttle servo connector:
+Tx chan0
+Servo audio cable
+  S     Yellow
+  +     White
+  -     nc
+  
+Throttle Hold servo connector:
+Tx chan3
+Servo audio cable
+  S     Red
+  +     nc
+  -     Blue

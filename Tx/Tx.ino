@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 19 April 2026
+TX OpenRC4CL 2 May 2026
 
 MIT license
 
@@ -137,7 +137,8 @@ private:
   static const Switch::Pos Thr_Hold = Switch::middle;
   static const int vbatThr = 500;                          // if vbat not connected on Rx -> vbat < vbatThr
   Potmeter throttle{pinThrottle};
-  Switch chan1{pinLeftCh1, pinRightCh1};
+  // to add soft config param: Switch chan1{pinLeftCh1, pinRightCh1};
+  Switch chan1{pinRightCh1};
   Potmeter chan2{pinCh2};
   Potmeter chan3{pinCh3};
   Potmeter chan4{pinCh4};

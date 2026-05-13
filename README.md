@@ -2,7 +2,7 @@
 
 Control Line (CL), also called U-Control, is a way of controlling model airplanes, see https://en.wikipedia.org/wiki/Control_line.
 
-Low-cost DIY project for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
+Low-cost DIY project based on low-cost ESP32C6s for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
 Uses the ESP-NOW protocol transmitted via the 2.4 GHz Wi-Fi band.
 
 One PCB for Tx, Rx and Timer.
@@ -12,6 +12,8 @@ The software is released as opensource under the MIT license.
 Note this project is Work In Progress and is developed for ESP32 C6, does not need external antennas.
 
 Feedback is welcome and I am open to ideas and/or collaboration.
+
+See for discussion the (Dutch) Modelbouw forum https://www.modelbouwforum.nl/threads/openrc4cl-diy-lb-met-rc-functies.294026/ 
 
 ## Functional overview OpenRC4CL.
 
@@ -43,6 +45,7 @@ Rx servo channels:
 
 Special functions:
 
+- kill switch on Tx
 - check pairing Tx and Rx based on MAC address [planned soft MAC address]
 - checksum on transmitted data
 - failsafe if > 0.5 seconds connection lost OR TxBatt low:

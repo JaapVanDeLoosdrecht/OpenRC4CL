@@ -1,4 +1,33 @@
-Todo:
+class Rx : public RcPeer {  
+public:
+  Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log) : RcPeer(mac_tx, channel, iface, lmk) { 
+    failsafe();
+	logger = log;
+  }
+void update() {
+      ....
+      if ((now - last) > FAILSAFE_TIME) {
+	    failsafe();
+		.....
+private:
+  void failsafe() {
+    throttle.failsafe(); chan1.failsafe(); chan2.failsafe(); chan3.failsafe(); chan4.failsafe(); 
+  }
+   
+hall sensor or pot and output a 0.8–4V throttle signal
+use simple crank and slider, max 180 degress and not linear
+Rack and pinion stl?
+   
+- todo test A4 (MTMS) to C2 and A6 (MTCK) to C3
+- Small tx pcb: no connectors, no diode
+  size = size C6 + one collumn left and right
+  Rs below C6, in middle??
+  4 corners of C6 extra black spacers if more clearance needed
+  use JST connector for VBat
+  use possibilty for horizontal Esc servo connector
+- if not connected log every N secs status for Tx and Rx
+- Tx starts beeping after x mins not used
+- not needed, is done with hardware jumper: add config param for Tx chan4 servo or digital input
 - test with C6 devkit debugging on new breadboard, use wire or dipswitch for TH
 - test new software on prototype boards
   Rx: A0 thr, A2 vbat
@@ -13,6 +42,7 @@ Todo:
   rampup time if starting from zero
    most ESCs have a similar function
 - exponential throttle curve
+  can use (limited) floats?? lookup table?? N knee points with linear interpolation
 - idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
 
 - sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
@@ -26,12 +56,6 @@ CLTimer:
   rampup time if starting from zero
 
 fase2:
-- order 
-  - Tx lipos 
-  - combat engine, esc and props
-  - prop balancer
-  - longer CL lines
-  - new balance board Junsi
 - exponential throttle
 - use state machine to keep track of status and actions
 - for documentation: differentiate between to thr warning systems
