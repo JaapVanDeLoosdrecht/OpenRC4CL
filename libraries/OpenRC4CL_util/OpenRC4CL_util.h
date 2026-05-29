@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.11"; 
+const char *OpenRC4CL_VERSION = "1.0.12"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -52,7 +52,7 @@ const int pinCh4 = A6;
 // const int pinExternLed = D10;            // todo
 
 BLESerial<> SerialBLE;         // make SerialBLE global accesable like Serial, use Serial Bluetooth Terminal App (Google play)
-extern BLESerial<> SerialBLE;  // windows 11 https://github.com/healthywalk/BLE-Serial-Terminal
+extern BLESerial<> SerialBLE;  // windows 11 https://github.com/healthywalk/BLE-Serial-Terminal, use CR+LF
 
 struct Status {	
   enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   WaitStart,   Error };

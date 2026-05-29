@@ -26,7 +26,7 @@ PCB:
 - one PCB for Tx, Rx and Timer
 - Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
 - Antenna
-  orientatie internal antenna = left next to usb
+  orientatie internal antenna = opposite side of usb
   You may need to reduce the output power. For some reason, the supermini has issues running at max power, 
   which I believe is the default setting. There are a few potential issues with this device that can often 
   be resolved through configuration, including your specific problem. I suggest taking a look at a great video 
@@ -50,7 +50,7 @@ PCB checks:
 - Click on Via shows all connected wires and other vias
 - add some mounting holes
   solder servo wires in order to keep height low
-- solder C6 with some extra clearance betweeb PCB to avoid shorcut or use tape
+- solder C6 with some extra clearance between PCB to avoid shorcut or use tape
 - idea: 4 vias in corners for mounting hole
 - at least 0.5 mm from outside borders, 1mm if round off corner edges (v-scoring?) of PCB
 - design rules check

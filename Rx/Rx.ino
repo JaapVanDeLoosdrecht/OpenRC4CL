@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 3 April 2026
+Rx OpenRC4CL 27 May 2026
 
 MIT license
 
@@ -137,7 +137,7 @@ protected:
 private:
   RcTimer timer{maxTime};
   Throttle throttle{pinThrottle, &timer, minThrottle, maxTime, escWarn, nrWarns, stopEngine};
-  RcServo chan1{pinCh1, TxMinPulse, TxMaxPulse, 0, -1};
+  RcServo chan1{pinCh1, TxMinPulse, TxMaxPulse, 0, -1, true};
   RcServo chan2{pinCh2, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan3{pinCh3, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan4{pinCh4, TxMinPulse, TxMaxPulse, 0, -1};

@@ -14,18 +14,62 @@ private:
     throttle.failsafe(); chan1.failsafe(); chan2.failsafe(); chan3.failsafe(); chan4.failsafe(); 
   }
    
+combat:
+- extra receiver
+- use virtual mac-address
+  of one Tx and N Rxs: only Tx needs mac table
+- offset motor with o-rings
+- round sharp corners
+- extra holes or in motor mount
+- use wind channel to cool esc using tapered pvc tube
+  channel in flight direction/ribs
+- receiver usb should be accessible for updates
+
 hall sensor or pot and output a 0.8–4V throttle signal
 use simple crank and slider, max 180 degress and not linear
+test 90 degrees rotation of 300 potmeter
 Rack and pinion stl?
-   
+
+carrier
+- new bigger bellcrank, move backwards to 2nd reenforcement
+  reuse elevator boom
+  hoogteroer: scharnieren en normaal horntje  
+
+- Vbat low blijven piepen en is te zacht voor in broek
+
+- generic logging (like blackbox) on C6
+- Nex Tx charge by usb with sealing cap.
+  Is this possible, needs 'step' in wall for access usb connector?
+- Tx led en laad connector (balance?)
+- Lost count tx klopt niet is altijd zero
+- No tx -> rx log status lipo etc
+
 - todo test A4 (MTMS) to C2 and A6 (MTCK) to C3
 - Small tx pcb: no connectors, no diode
   size = size C6 + one collumn left and right
   Rs below C6, in middle??
   4 corners of C6 extra black spacers if more clearance needed
-  use JST connector for VBat
+  use JST PH connector for VBat or solder connection for JST-PH red connector
   use possibilty for horizontal Esc servo connector
+  Ideas: 
+  - use on both side of esp JST 2.0 SH connectors max 7 pins, is it possible to add connector with 1mm space in Frizting 
+  - special Rx pcb, one side with 2 horizontal servo connector (Esc and chan1)
+- idea? No PCB version for simple (TH + THR + hook) Tx handle?? Only two Rs needed.
+  every connection its own wire? 
+  using flat cable with connector?
+  small form factor add-onn box for handle (ESP + 2 switches + potmeter) 
+  same idea for simple Rx?? with flat cable 
+  flat flexible cable (ribon cable) pitch JST SH 1.0? mm: 
+  - minimal 11: 5v, 3.3V, GND, TxBatt+, TxBatt-, Pot/Esc(A0), Chan1(A1), VBatt+(A2), TH(D6), SW1(D5), Beep(D7)
+    extra GNDs?
+  - extra or solder direct to C6: SW2(D4), Chan2(A4), Chan3(A5), 
+  JST 2.0 SH 12 pins is too big??, split in multiple cables?
+  https://www.amazon.com/Connector-Housing-Connectors-Controller-Pre-Crimped/dp/B0DH29DLMT?th=1 (only female?)
+  https://www.amazon.com/JST-PH-Connector-Silicone-Cables-Female/dp/B0DMZK9CJR/ref=sr_1_8?crid=MT6HGLPC9VJZ&dib=eyJ2IjoiMSJ9.22ctwhKmek3DiFS-5XVMsXGbeI3-omfk9mRUkfeaNABnQzmW5oKmaoz1XlHvkzOo9htcidf4y4TUtq-Xo5kkeZN5iZUDuKYFrj_vpwloWuDyusCmvZY51jdJFkIlWnuy47jNHrdYRGmsAk-6dXCD0M75bkS1rrevnCZzEH4P-ZVHdQcjvH3PDpPYcAJ_-eC62aZUmcTehIAHSnyzcsrGD2slWpDJU7y0r0of80syBBw.4gBcA8al8x5gMmjoPLTOSubBzcVO2WzvjBcOZoam4Bo&dib_tag=se&keywords=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemale%2Bconnector%2B12%2Bpins&nsdOptOutParam=true&qid=1779263925&sprefix=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemel%2Bconnector%2B12%2Bpins%2Caps%2C194&sr=8-8&th=1
+  https://www.amazon.com/JST-PH-Connector-Silicone-Cables-Female/dp/B0DMW7FPCH/ref=sr_1_8?crid=MT6HGLPC9VJZ&dib=eyJ2IjoiMSJ9.22ctwhKmek3DiFS-5XVMsXGbeI3-omfk9mRUkfeaNABnQzmW5oKmaoz1XlHvkzOo9htcidf4y4TUtq-Xo5kkeZN5iZUDuKYFrj_vpwloWuDyusCmvZY51jdJFkIlWnuy47jNHrdYRGmsAk-6dXCD0M75bkS1rrevnCZzEH4P-ZVHdQcjvH3PDpPYcAJ_-eC62aZUmcTehIAHSnyzcsrGD2slWpDJU7y0r0of80syBBw.4gBcA8al8x5gMmjoPLTOSubBzcVO2WzvjBcOZoam4Bo&dib_tag=se&keywords=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemale%2Bconnector%2B12%2Bpins&nsdOptOutParam=true&qid=1779263925&sprefix=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemel%2Bconnector%2B12%2Bpins%2Caps%2C194&sr=8-8&th=1- 100Hz?
+- beep 1x if killswitch deactivated
 - if not connected log every N secs status for Tx and Rx
+- add cmd to toggle on/off login, needed when setting params
 - Tx starts beeping after x mins not used
 - not needed, is done with hardware jumper: add config param for Tx chan4 servo or digital input
 - test with C6 devkit debugging on new breadboard, use wire or dipswitch for TH
@@ -44,9 +88,31 @@ Rack and pinion stl?
 - exponential throttle curve
   can use (limited) floats?? lookup table?? N knee points with linear interpolation
 - idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
+- mini reset button for binding or terminal app?
+https://opencircuit.nl/product/mini-schakelaar-pcb-mount-2-pin-spst-50ma?srsltid=AfmBOophvi_jH0liToo5tpH97ShfAzFRpg4mTHkbKVPoL-LJvQN6kpsW
+https://opencircuit.nl/product/tactiele-button-3x6x5mm
+
+ON OFF ON SPDT switch wiring
+                 Throw 1 ----- GND
+                 Throw 2 ----- 3.3V
+                 Common  ----- ADC pin
+3.3V ----[ Rtop ]----+----[ Rbottom ]---- GND
+                      |
+                    ADC pin
+	Common → ADC pin
+	One end → GND
+	Other end → 3.3 V
+	Middle position = OFF → no connection → ADC only sees the resistor divider.
+Resulting voltages
+	Position 1 (to GND): ADC ≈ 0" V" (switch dominates, low impedance to GND)
+	Middle (OFF): ADC ≈ 1.65" V" (pure divider)
+	Position 3 (to 3.3 V): ADC ≈ 3.3" V" (switch dominates, low impedance to VCC)
+Now you truly get three stable, well separated levels.
+Use 20K Rs!
 
 - sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
 - move repro to https://codeberg.org/??
+- esp-now analyser https://wiki.wireshark.org/ESP_Preferences
 
 CLTimer: 
 - Update to latest version of OpenRC4CL_util.h
