@@ -1,50 +1,48 @@
-class Rx : public RcPeer {  
-public:
-  Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log) : RcPeer(mac_tx, channel, iface, lmk) { 
-    failsafe();
-	logger = log;
-  }
-void update() {
-      ....
-      if ((now - last) > FAILSAFE_TIME) {
-	    failsafe();
-		.....
-private:
-  void failsafe() {
-    throttle.failsafe(); chan1.failsafe(); chan2.failsafe(); chan3.failsafe(); chan4.failsafe(); 
-  }
-   
-combat:
-- extra receiver
-- use virtual mac-address
-  of one Tx and N Rxs: only Tx needs mac table
-- offset motor with o-rings
-- round sharp corners
-- extra holes or in motor mount
-- use wind channel to cool esc using tapered pvc tube
-  channel in flight direction/ribs
-- receiver usb should be accessible for updates
+Added
+- basic loging Tx/Rx status if peer is not connected
+- cmd log on/off 
+- bugfix for Tx.connected
+- refactor Rx.failsafe 
+- primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
+- rearranged wiring protoboard to PCB standard
 
 hall sensor or pot and output a 0.8–4V throttle signal
 use simple crank and slider, max 180 degress and not linear
 test 90 degrees rotation of 300 potmeter
 Rack and pinion stl?
 
-carrier
-- new bigger bellcrank, move backwards to 2nd reenforcement
-  reuse elevator boom
-  hoogteroer: scharnieren en normaal horntje  
+Design StateMachine and refactor code
 
+- 
 - Vbat low blijven piepen en is te zacht voor in broek
+  test bigger beeper
+  
+- bind using BLE or wifi better option than virtual macaddress!!??
+  alternative use list: <devName> <macadr>
 
 - generic logging (like blackbox) on C6
-- Nex Tx charge by usb with sealing cap.
+- Next Tx charge by usb with sealing cap.
   Is this possible, needs 'step' in wall for access usb connector?
 - Tx led en laad connector (balance?)
 - Lost count tx klopt niet is altijd zero
-- No tx -> rx log status lipo etc
 
 - todo test A4 (MTMS) to C2 and A6 (MTCK) to C3
+- note is difficult to implement: beep 1x if killswitch deactivated
+  idea: add status InfoBeep for this purpose
+  in update: only if status==InfoBeep only go to StatusOk if beep 'expired'
+
+- Tx starts beeping after x mins not used
+- test with C6 devkit debugging on new breadboard, use wire or dipswitch for TH
+- test new software on prototype boards
+  Rx: A0 thr, A2 vbat
+  Tx: A0 esc, A1 vbat, D3 TH, D8 beep
+- ?? softstart option for CLtimer and combat handle (= startup ramp %)
+  rampup time if starting from zero
+   most ESCs have a similar function
+- exponential throttle curve
+  can use (limited) floats?? lookup table?? N knee points with linear interpolation
+- idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
+
 - Small tx pcb: no connectors, no diode
   size = size C6 + one collumn left and right
   Rs below C6, in middle??
@@ -67,30 +65,6 @@ carrier
   https://www.amazon.com/Connector-Housing-Connectors-Controller-Pre-Crimped/dp/B0DH29DLMT?th=1 (only female?)
   https://www.amazon.com/JST-PH-Connector-Silicone-Cables-Female/dp/B0DMZK9CJR/ref=sr_1_8?crid=MT6HGLPC9VJZ&dib=eyJ2IjoiMSJ9.22ctwhKmek3DiFS-5XVMsXGbeI3-omfk9mRUkfeaNABnQzmW5oKmaoz1XlHvkzOo9htcidf4y4TUtq-Xo5kkeZN5iZUDuKYFrj_vpwloWuDyusCmvZY51jdJFkIlWnuy47jNHrdYRGmsAk-6dXCD0M75bkS1rrevnCZzEH4P-ZVHdQcjvH3PDpPYcAJ_-eC62aZUmcTehIAHSnyzcsrGD2slWpDJU7y0r0of80syBBw.4gBcA8al8x5gMmjoPLTOSubBzcVO2WzvjBcOZoam4Bo&dib_tag=se&keywords=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemale%2Bconnector%2B12%2Bpins&nsdOptOutParam=true&qid=1779263925&sprefix=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemel%2Bconnector%2B12%2Bpins%2Caps%2C194&sr=8-8&th=1
   https://www.amazon.com/JST-PH-Connector-Silicone-Cables-Female/dp/B0DMW7FPCH/ref=sr_1_8?crid=MT6HGLPC9VJZ&dib=eyJ2IjoiMSJ9.22ctwhKmek3DiFS-5XVMsXGbeI3-omfk9mRUkfeaNABnQzmW5oKmaoz1XlHvkzOo9htcidf4y4TUtq-Xo5kkeZN5iZUDuKYFrj_vpwloWuDyusCmvZY51jdJFkIlWnuy47jNHrdYRGmsAk-6dXCD0M75bkS1rrevnCZzEH4P-ZVHdQcjvH3PDpPYcAJ_-eC62aZUmcTehIAHSnyzcsrGD2slWpDJU7y0r0of80syBBw.4gBcA8al8x5gMmjoPLTOSubBzcVO2WzvjBcOZoam4Bo&dib_tag=se&keywords=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemale%2Bconnector%2B12%2Bpins&nsdOptOutParam=true&qid=1779263925&sprefix=jst%2Bsh%2Bcable%2Bwith%2Bmale%2Band%2Bfemel%2Bconnector%2B12%2Bpins%2Caps%2C194&sr=8-8&th=1- 100Hz?
-- beep 1x if killswitch deactivated
-- if not connected log every N secs status for Tx and Rx
-- add cmd to toggle on/off login, needed when setting params
-- Tx starts beeping after x mins not used
-- not needed, is done with hardware jumper: add config param for Tx chan4 servo or digital input
-- test with C6 devkit debugging on new breadboard, use wire or dipswitch for TH
-- test new software on prototype boards
-  Rx: A0 thr, A2 vbat
-  Tx: A0 esc, A1 vbat, D3 TH, D8 beep
-- if Rx is exchanged only change in to macpeer in Tx is needed?
-  use special header to populate list (index??) name-model/tx macaddress
-  reboot afterwards
-- make list with peers to select from to bind??
-- ??? Tx: if no need for charge, can use 5V C6 pin for power??
-- make better photos of protoboards and screenshot of BL logging
-- ?? softstart option for CLtimer and combat handle (= startup ramp %)
-  rampup time if starting from zero
-   most ESCs have a similar function
-- exponential throttle curve
-  can use (limited) floats?? lookup table?? N knee points with linear interpolation
-- idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
-- mini reset button for binding or terminal app?
-https://opencircuit.nl/product/mini-schakelaar-pcb-mount-2-pin-spst-50ma?srsltid=AfmBOophvi_jH0liToo5tpH97ShfAzFRpg4mTHkbKVPoL-LJvQN6kpsW
-https://opencircuit.nl/product/tactiele-button-3x6x5mm
 
 ON OFF ON SPDT switch wiring
                  Throw 1 ----- GND

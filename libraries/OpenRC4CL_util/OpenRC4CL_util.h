@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 19 April 2026
+Utils for OpenRC4CL 1 June 2026
 
 MIT license
 
@@ -299,10 +299,10 @@ class Logger {  // log msgs to both Serial and SerialBLE
 public:
   Logger(int max_buf = 120) { _max_buf = max_buf; _buf = new char[_max_buf]; }
   void printf(const char* format, ...) {
-    va_list args; va_start(args, format);
-    vsnprintf(_buf, _max_buf, format, args);
-    va_end(args);
-    Serial.print(_buf); SerialBLE.print(_buf); SerialBLE.flush();
+	va_list args; va_start(args, format);
+	vsnprintf(_buf, _max_buf, format, args);
+	va_end(args);
+	Serial.print(_buf); SerialBLE.print(_buf); SerialBLE.flush();
   }
 private:
   char *_buf = 0; int _max_buf;
@@ -399,6 +399,7 @@ class CMD { // CoMmanD interpreter
       else if (!strcmp(cmd, "set")) set(cmdline);
       else if (!strcmp(cmd, "get")) get(cmdline);
       else if (!strcmp(cmd, "list")) list();
+      else if (!strcmp(cmd, "mac")) mac();
       else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n");
       else if (!strcmp(cmd, "version")) log->printf("%s\n", OpenRC4CL_VERSION);
       else if (!strcmp(cmd, "default")) { nvs_erase(); ESP.restart(); }
@@ -472,7 +473,7 @@ class CMD { // CoMmanD interpreter
 		p++;
       }
 	}
-  private:
+	void mac() { log->printf("mac=%s\n", WiFi.macAddress().c_str()); }
     static constexpr char* passwdCmd = "passwd";
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];

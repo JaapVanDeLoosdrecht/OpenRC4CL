@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 27 May 2026
+Rx OpenRC4CL 1 June 2026
 
 MIT license
 
@@ -24,16 +24,13 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
 // RX com7 (proto=9) black 2nd usb
 
-// #define PROTOBOARD
+// primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
 
 #include <MacAddress.h>
 #include <WiFi.h>
 #include <limits.h>
 #include "OpenRC4CL_util.h"
-#include "secret.h"  # NOTE this file is NOT in repro and this line should be commented out
-#ifndef SECRET
-char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMDs
-#endif
+char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMD: set macPeer 00:00:00:00:00:00
 
 // system
 const unsigned long FAILSAFE_TIME = 500;    // ms
@@ -52,6 +49,7 @@ int nrWarns = 3;                            // number of Esc warnings before sto
 int stopEngine = 5;                         // nr of secs to stop engine after last Esc warning
 int minThrottle = TxMidPulse;               // min throttle value to start timer, 0 = no restart timer 
 int nrPackets = 100;                        // nr packets (50 Hz) to receive for telemetry and logging
+int logging = 1;                            // 1: log status, 0: no log
 
 NVS* buildNVS(Logger *log) {
   const int max_nvs_params = 16; 
@@ -69,14 +67,16 @@ NVS* buildNVS(Logger *log) {
   nvs->add(NVS_INT(stopEngine, 0, 10));
   nvs->add(NVS_INT(minThrottle, TxMinPulse, TxMaxPulse));
   nvs->add(NVS_INT(nrPackets, 50, 1000));
+  nvs->add(NVS_INT(logging, 0, 1));
   return nvs;
 }
 
 class Rx : public RcPeer {  
 public:
   Rx(MacAddress mac_tx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log) : RcPeer(mac_tx, channel, iface, lmk) { 
-    throttle.failsafe(); chan1.failsafe(); 
+    failsafe(); 
     logger = log;
+    logStatus();
   }
   void onReceive(const uint8_t *data, size_t len, bool broadcast) { 
     struct TxData rc = *(struct TxData *)data;  // copy received data
@@ -90,17 +90,23 @@ public:
       unsigned long last = timeLastTx;     // copy of last before geting now, this function can be interupted
       unsigned long now = millis();
       if ((now - last) > FAILSAFE_TIME) {  // note check can be interrupted by callback, abs doesn't work on unsigned
-        throttle.failsafe();
-        chan1.failsafe(); chan2.failsafe(); chan3.failsafe();
-        status.value = Status::Failsafe;
+        failsafe();
         waitThrHold = true;                // reset from FailSafe with TH
-        logger->printf("FAILSAFE!!!!\n");
+        if (status.value != Status::Failsafe) {
+         status.value = Status::Failsafe;
+         logger->printf("FAILSAFE!!!!\n"); // log once
+        }
         timeLastTx = now;                  // another test in FAILSAFE_TIME
       }
     }
     led.set(status.pulse()); led.update(); 
   }
 protected:
+  void logStatus() { 
+    if (logging)   
+      logger->printf("Rx:%s vbatt:%d t:%d maxt:%d lost:%d errors:%d\n", 
+                      status.str(), vBatt.read(), timer.secondsLeft(), maxTime, totalLost, errors);
+  }
   void command(struct TxData &rc, unsigned long now) {
     if (CheckSum(rc) == rc.checkSum) { 
       if (!connected) { connected = true; timer.start(); status.value = Status::Ok; }  // timer can be reset using first minimal throttle command
@@ -122,17 +128,20 @@ protected:
     if ((count == -1) && (rc.id % nrPackets != 0)) return;  // new Rx or Tx, sync id to multiple of nrPackets
     if (++count >= nrPackets) {  
       int rsi = max(nrPackets-packetsLost,0);
-
       struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), vBattLow, rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / nrPackets;
-      logger->printf("Rx:%s thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d\n", 
-                      status.str(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, 
-                      timer.secondsLeft(), maxTime, totalLost, errors);
+      if (logging)  
+        logger->printf("Rx:%s vbatt:%d thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d\n", 
+                        status.str(), vBatt.read(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, 
+                        timer.secondsLeft(), maxTime, totalLost, errors);
       count = packetsLost = 0;
       timeLast1st = now;
     }
+  }
+  void failsafe() {
+    throttle.failsafe(); chan1.failsafe(); chan2.failsafe(); chan3.failsafe(); chan4.failsafe(); 
   }
 private:
   RcTimer timer{maxTime};
@@ -160,14 +169,14 @@ void setup() {
   NVS* nvs = buildNVS(logger);
   cmd = new CMD(nvs, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
+  logger->printf("OpenRC4CL %s Rx %s channel=%d MAC Address=%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str());
   rx = new Rx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx->add_self())) {
     logger->printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("OpenRC4CL %s Rx %s channel:%d MAC Address:%s\n", 
-                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str());
   logger->printf("Waiting to connect to Tx %s\n", macPeer.c_str()); 
 }
 

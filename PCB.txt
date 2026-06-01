@@ -1,4 +1,4 @@
-PCB:
+PCB V1:
 - Tx (ESC = thr potmeter, C1 analog input, C2 digital switch, C3 'missuse as TH):
   - order solder:
     - R1 and R2, both 10K

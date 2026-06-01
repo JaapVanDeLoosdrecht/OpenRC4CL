@@ -13,7 +13,11 @@ Note this project is Work In Progress and is developed for ESP32 C6, does not ne
 
 Feedback is welcome and I am open to ideas and/or collaboration.
 
-See for discussion the (Dutch) Modelbouw forum https://www.modelbouwforum.nl/threads/openrc4cl-diy-lb-met-rc-functies.294026/ 
+See for discussion the (Dutch) Modelbouw forum https://www.modelbouwforum.nl/threads/openrc4cl-diy-lb-met-rc-functies.294026/ .
+
+## NOTE: there are two PCBs:
+- PCB V1 (4 channels) is tested
+- PCB V2 is under design and not yet tested. It is smaller and for 2 channels.
 
 ## Functional overview OpenRC4CL.
 
@@ -31,9 +35,9 @@ Tx channels:
 
 - 0: throttle potmeter
 - 1: 3 position switch
-- 2: potmeter
-- 3: potmeter
-- 4: potmeter
+- 2: potmeter or 3 position switch
+- 3: potmeter or 3 position switch
+- 4: potmeter or 3 position switch
 
 Rx servo channels:
 
