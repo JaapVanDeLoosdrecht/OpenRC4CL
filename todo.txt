@@ -1,10 +1,6 @@
-Added
-- basic loging Tx/Rx status if peer is not connected
-- cmd log on/off 
-- bugfix for Tx.connected
-- refactor Rx.failsafe 
-- primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
-- rearranged wiring protoboard to PCB standard
+Added/changed:
+- Tx mode TwoChans added
+- Tx mode chan1 for 2 or 3 pos switch added
 
 hall sensor or pot and output a 0.8–4V throttle signal
 use simple crank and slider, max 180 degress and not linear
@@ -164,6 +160,74 @@ private:
   MAC_ELM tab[16];
 }
 
+
+- bind devName -> set macPeer  and reboot
+- devNames -> list devName macAdr,  ..., ...
+- cmd addPeer namePer macPeer
+- cmd remvePeer namePer # move all 'higher idx' peer one postion up in table
+- use extra NVS namePeers
+
+Zero allocation version using fixed size
+
+struct Entry {
+    char key[32];
+    char value[32];
+};
+
+Entry table[] = {
+    { "SSID",     "MyWiFi" },
+    { "Password", "SuperSecret" },
+    { "Mode",     "Station" }
+};
+
+const size_t tableSize = sizeof(table) / sizeof(table[0]);
+
+const char* getValueByKey(const char* key) {
+    for (size_t i = 0; i < tableSize; i++) {
+        if (strcmp(table[i].key, key) == 0) {
+            return table[i].value;
+        }
+    }
+    return nullptr;
+}
+
+bool setValueByKey(const char* key, const char* newValue) {
+    for (size_t i = 0; i < tableSize; i++) {
+        if (strcmp(table[i].key, key) == 0) {
+            strncpy(table[i].value, newValue, sizeof(table[i].value) - 1);
+            table[i].value[31] = '\0';
+            return true;
+        }
+    }
+    return false;
+}
+
+void printTable() {
+    for (size_t i = 0; i < tableSize; i++) {
+        Serial.print("Key: ");
+        Serial.print(table[i].key);
+        Serial.print("  Value: ");
+        Serial.println(table[i].value);
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    printTable();
+
+    Serial.println("\nChanging Mode...");
+    setValueByKey("Mode", "AccessPoint");
+
+    Serial.println("\nNew table:");
+    printTable();
+
+    Serial.println("\nLookup SSID:");
+    const char* ssid = getValueByKey("SSID");
+    if (ssid) Serial.println(ssid);
+}
+
+void loop() {}
 
 Define a POD style class (or struct)
 To store an object as a blob, it must be trivially copyable (no pointers, no virtual methods, no dynamic memory).

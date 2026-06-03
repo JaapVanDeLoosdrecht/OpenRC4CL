@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 1 June 2026
+TX OpenRC4CL 3 June 2026
 
 MIT license
 
@@ -25,6 +25,10 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // Tx com5 (proto=8) white 1st usb 
 
 // primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
+
+// Tx hardware choices
+# define Chan1TwoPos                       // otherwise chan1 has 3 pos switch
+# define TwoChans                          // otherwise 5 chans, note: connect not used anlog input to GND to avoid adc oneshot read fail
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -63,6 +67,8 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_INT(logging, 0, 1));
   return nvs;
 }
+
+#define Chan1Pins(pos) (pos == 1 ? pinLeftCh1 : (pinLeftCh1, pinRightCh1))
 
 class Tx : public RcPeer {
 public:
@@ -150,11 +156,16 @@ private:
   static const Switch::Pos Thr_Hold = Switch::middle;
   static const int vbatThr = 500;                          // if vbat not connected on Rx -> vbat < vbatThr
   Potmeter throttle{pinThrottle};
-  // to add soft config param: Switch chan1{pinLeftCh1, pinRightCh1};
-  Switch chan1{pinRightCh1};
-  Potmeter chan2{pinCh2};
-  Potmeter chan3{pinCh3};
-  Potmeter chan4{pinCh4};
+  #ifdef Chan1TwoPos
+    Switch chan1{pinLeftCh1};
+  #else
+    Switch chan1{pinLeftCh1, pinRightCh1};
+  #endif  
+  #ifdef TwoChans
+    Potmeter chan2{PIN_NOT_USED}; Potmeter chan3{PIN_NOT_USED}; Potmeter chan4{PIN_NOT_USED};
+  #else
+    Potmeter chan2{pinCh2}; Potmeter chan3{pinCh3}; Potmeter chan4{pinCh4};
+  #endif
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
   Switch hold{pinThrottleHold};

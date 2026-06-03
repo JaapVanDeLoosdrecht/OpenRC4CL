@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.12"; 
+const char *OpenRC4CL_VERSION = "1.0.13"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -399,8 +399,8 @@ class CMD { // CoMmanD interpreter
       else if (!strcmp(cmd, "set")) set(cmdline);
       else if (!strcmp(cmd, "get")) get(cmdline);
       else if (!strcmp(cmd, "list")) list();
-      else if (!strcmp(cmd, "mac")) mac();
-      else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nhelp\nversion\ndefault\nreboot\nlock\n");
+      else if (!strcmp(cmd, "mac")) log->printf("mac=%s\n", WiFi.macAddress().c_str());
+      else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nmac\nhelp\nversion\ndefault\nreboot\nlock\n");
       else if (!strcmp(cmd, "version")) log->printf("%s\n", OpenRC4CL_VERSION);
       else if (!strcmp(cmd, "default")) { nvs_erase(); ESP.restart(); }
       else if (!strcmp(cmd, "reboot")) ESP.restart();
@@ -473,7 +473,6 @@ class CMD { // CoMmanD interpreter
 		p++;
       }
 	}
-	void mac() { log->printf("mac=%s\n", WiFi.macAddress().c_str()); }
     static constexpr char* passwdCmd = "passwd";
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];
