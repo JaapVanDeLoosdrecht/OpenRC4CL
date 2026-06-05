@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 3 June 2026
+TX OpenRC4CL 5 June 2026
 
 MIT license
 
@@ -27,8 +27,10 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
 
 // Tx hardware choices
-# define Chan1TwoPos                       // otherwise chan1 has 3 pos switch
-# define TwoChans                          // otherwise 5 chans, note: connect not used anlog input to GND to avoid adc oneshot read fail
+// #define Chan1Left                         // Chan1 2 pos switch on pinLeftCh1 otherwise chan1 has 3 pos switch
+// #define Chan1Right                        // Chan1 2 pos switch on pinRightCh1 otherwise chan1 has 3 pos switch
+// #define TwoChans                          // otherwise 4 or 5 chans, note: connect not used anlog input to GND to avoid adc oneshot read fail
+// #define FiveChans                      // Note: needs soldering extra wire on PCB V1
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -49,11 +51,14 @@ String date = buildDate();
 int wifiChan = 6;                           // [1..13]
 int deadBand = 0;                           // for TH low
 int txBattLow = 3500;                       // min voltage for Tx lipo
-int nrWarns = 3;                            // number beeps if TxBattLow or timer is expired number 
+int nrWarns = 10;                           // number beeps if TxBattLow or timer is expired number 
 int logging = 1;                            // 1: log status, 0: no log
+int nrChans = 2;                            // nr of channels used [2..5], to avoid floating analog inputs warnings
+int ch1Switch = 1;                          // pins used for ch1 switch: 0 = pinLeftCh1, 1 = pinRightCh1, 2 = both pins
+int vBatt = 1;                              // 0 = no vBatt connected, 1 = vBatt connected, to avoid floating analog inputs warnings
 
 NVS* buildNVS(Logger *logger) {
-  const int max_nvs_params = 16; 
+  const int max_nvs_params = 32; 
   // nvs_erase();
   NVS* nvs = new NVS(max_nvs_params, logger); 
   nvs->add(NVS_STR(devName));
@@ -63,8 +68,13 @@ NVS* buildNVS(Logger *logger) {
   nvs->add(NVS_INT(wifiChan, 1, 13));
   nvs->add(NVS_INT(deadBand, deadBandMin, deadBandMax));  // deadband delta for throttle
   nvs->add(NVS_INT(txBattLow, 3000, 4350));
-  nvs->add(NVS_INT(nrWarns, 1, 10));
+  nvs->add(NVS_INT(nrWarns, 1, 20));
   nvs->add(NVS_INT(logging, 0, 1));
+  nvs->add(NVS_INT(nrChans, 2, 5));
+  nvs->add(NVS_INT(ch1Switch, 0, 2));
+  nvs->add(NVS_INT(vBatt, 0, 1));
+  logging = 1;  // always reset logging to true at boot
+  nvs->writeInt("logging", logging);
   return nvs;
 }
 
@@ -153,24 +163,19 @@ protected:
     beep.update(); 
   }
 private:
-  static const Switch::Pos Thr_Hold = Switch::middle;
+  static const Switch::Pos Thr_Hold = Switch::Middle;
   static const int vbatThr = 500;                          // if vbat not connected on Rx -> vbat < vbatThr
   Potmeter throttle{pinThrottle};
-  #ifdef Chan1TwoPos
-    Switch chan1{pinLeftCh1};
-  #else
-    Switch chan1{pinLeftCh1, pinRightCh1};
-  #endif  
-  #ifdef TwoChans
-    Potmeter chan2{PIN_NOT_USED}; Potmeter chan3{PIN_NOT_USED}; Potmeter chan4{PIN_NOT_USED};
-  #else
-    Potmeter chan2{pinCh2}; Potmeter chan3{pinCh3}; Potmeter chan4{pinCh4};
-  #endif
+  Switch chan1{((ch1Switch = 0) || (ch1Switch = 2)) ? pinLeftCh1 : PIN_NOT_USED, 
+               ((ch1Switch = 1) || (ch1Switch = 2)) ? pinRightCh1 : PIN_NOT_USED};
+  Potmeter chan2{(nrChans > 2) ? pinCh2 : PIN_NOT_USED}; 
+  Potmeter chan3{(nrChans > 3) ? pinCh3 : PIN_NOT_USED}; 
+  Potmeter chan4{(nrChans > 4) ? pinCh4 : PIN_NOT_USED};
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true};  
   Switch hold{pinThrottleHold};
   Beep beep{pinBeep, status.pulse()};
-  VoltageDiv txBatt{pinVBatt, lipoDivR1, lipoDivR2};
+  VoltageDiv txBatt{(vBatt) ? pinVBatt : PIN_NOT_USED, lipoDivR1, lipoDivR2};
   bool connected = false, endFlight = false, beepEndFlight = false;
   int id = 0, lastId = 0, errors = 0;      // #errors = #send + #checksum
   unsigned long lastTelm = 0;

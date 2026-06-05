@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 1 June 2026
+Rx OpenRC4CL 5 June 2026
 
 MIT license
 
@@ -50,9 +50,13 @@ int stopEngine = 5;                         // nr of secs to stop engine after l
 int minThrottle = TxMidPulse;               // min throttle value to start timer, 0 = no restart timer 
 int nrPackets = 100;                        // nr packets (50 Hz) to receive for telemetry and logging
 int logging = 1;                            // 1: log status, 0: no log
+int vBatt = 0;                              // 0 = no vBatt connected, 1 = vBatt connected, to avoid floating analog inputs warnings
+int ch1Left = 1000;                         // pulses in us for 3 pos switch channel 1 
+int ch1Middle = 1500;
+int ch1Right = 2000;
 
 NVS* buildNVS(Logger *log) {
-  const int max_nvs_params = 16; 
+  const int max_nvs_params = 32; 
   // nvs_erase();
   NVS* nvs = new NVS(max_nvs_params, log); 
   nvs->add(NVS_STR(devName));
@@ -68,6 +72,12 @@ NVS* buildNVS(Logger *log) {
   nvs->add(NVS_INT(minThrottle, TxMinPulse, TxMaxPulse));
   nvs->add(NVS_INT(nrPackets, 50, 1000));
   nvs->add(NVS_INT(logging, 0, 1));
+  nvs->add(NVS_INT(vBatt, 0, 1));
+  nvs->add(NVS_INT(ch1Left, TxMinPulse, TxMaxPulse));
+  nvs->add(NVS_INT(ch1Middle, TxMinPulse, TxMaxPulse));
+  nvs->add(NVS_INT(ch1Right, TxMinPulse, TxMaxPulse));
+  logging = 1;  // always reset logging to true at boot
+  nvs->writeInt("logging", logging);
   return nvs;
 }
 
@@ -105,7 +115,7 @@ protected:
   void logStatus() { 
     if (logging)   
       logger->printf("Rx:%s vbatt:%d t:%d maxt:%d lost:%d errors:%d\n", 
-                      status.str(), vBatt.read(), timer.secondsLeft(), maxTime, totalLost, errors);
+                      status.str(), rxBatt.read(), timer.secondsLeft(), maxTime, totalLost, errors);
   }
   void command(struct TxData &rc, unsigned long now) {
     if (CheckSum(rc) == rc.checkSum) { 
@@ -113,6 +123,7 @@ protected:
       timeLastTx = now;
       if (rc.throttle == TxThrottleHoldPulse) waitThrHold = false;  // wait for (first) TH at start Rx
       thrLast = throttle.writeTx(waitThrHold ? throttle.failSaveValue() : rc.throttle);
+      rc.chan1 = UpdateSwitchCh1(rc.chan1);
       chan1.writeTx(rc.chan1); chan2.writeTx(rc.chan2); chan3.writeTx(rc.chan3); chan4.writeTx(rc.chan4);
       if (rc.id < 100) {  // new Tx 
         timer.start(); status.value = Status::Ok;
@@ -128,13 +139,13 @@ protected:
     if ((count == -1) && (rc.id % nrPackets != 0)) return;  // new Rx or Tx, sync id to multiple of nrPackets
     if (++count >= nrPackets) {  
       int rsi = max(nrPackets-packetsLost,0);
-      struct Telemetry tel = {0, rc.id, status.value, vBatt.read(), vBattLow, rsi, timer.secondsLeft(), totalLost, errors};
+      struct Telemetry tel = {0, rc.id, status.value, rxBatt.read(), vBattLow, rsi, timer.secondsLeft(), totalLost, errors};
       tel.checkSum = CheckSum(tel);
       if (!send_data((const uint8_t *)&tel, sizeof(tel))) errors++;
       int avg_time = (int)(now - timeLast1st) / nrPackets;
       if (logging)  
         logger->printf("Rx:%s vbatt:%d thr:%d ch1:%d ch2:%d ch3:%d ch4:%d ms:%d rsi:%d t:%d maxt:%d lost:%d errors:%d\n", 
-                        status.str(), vBatt.read(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, 
+                        status.str(), rxBatt.read(), thrLast, rc.chan1, rc.chan2, rc.chan3, rc.chan4, avg_time, rsi, 
                         timer.secondsLeft(), maxTime, totalLost, errors);
       count = packetsLost = 0;
       timeLast1st = now;
@@ -143,14 +154,23 @@ protected:
   void failsafe() {
     throttle.failsafe(); chan1.failsafe(); chan2.failsafe(); chan3.failsafe(); chan4.failsafe(); 
   }
+protected:
+  int UpdateSwitchCh1(int value) {
+    switch (value) {
+      case TxMinPulse: return ch1Left;
+      case TxMidPulse: return ch1Middle;
+      case TxMaxPulse: return ch1Right;
+      default: return value;
+    }
+  }
 private:
   RcTimer timer{maxTime};
   Throttle throttle{pinThrottle, &timer, minThrottle, maxTime, escWarn, nrWarns, stopEngine};
-  RcServo chan1{pinCh1, TxMinPulse, TxMaxPulse, 0, -1, true};
+  RcServo chan1{pinCh1, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan2{pinCh2, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan3{pinCh3, TxMinPulse, TxMaxPulse, 0, -1};
   RcServo chan4{pinCh4, TxMinPulse, TxMaxPulse, 0, -1};
-  VoltageDiv vBatt{pinVBatt, lipoDivR1, lipoDivR2};
+  VoltageDiv rxBatt{(vBatt) ? pinVBatt : PIN_NOT_USED, lipoDivR1, lipoDivR2};
   Status status{Status::WaitTxRx};
   Led led{pinLed, status.pulse(), true}; 
   bool connected = false, waitThrHold = true;

@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 1 June 2026
+Utils for OpenRC4CL 5 June 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.13"; 
+const char *OpenRC4CL_VERSION = "1.0.14"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -149,28 +149,30 @@ private:
 
 class Switch {  // 3 (or 2) pos switch, middle to GND, left and right to digital inputs, no external pullup Rs
 public:         // NOTE: fallback is middle for both 3 pos and 2 pos if switch becomes disconnected! 
-  enum Pos {middle, left, right};  // NOTE: 2 pos has {middle, left} 
-  Switch(int pinLeft, int pinRight=-1) {
-	leftP = new PushButton(pinLeft);
-    if (pinRight >= 0) { rightP = new PushButton(pinRight); tab = tab3; }
+  enum Pos {Left, Middle, Right};
+  Switch(int pinLeft, int pinRight = PIN_NOT_USED) {
+	if (pinLeft != PIN_NOT_USED) leftP = new PushButton(pinLeft);
+    if (pinRight != PIN_NOT_USED) rightP = new PushButton(pinRight); 
   }
-  Pos readPos() { int lt = leftP->read(); return (Pos)(rightP ? lt + 2 * rightP->read() : lt); }
+  Pos readPos() { 
+	if (leftP && leftP->read()) return Left;
+	if (rightP && rightP->read()) return Right; 
+	return Middle;
+  }
   int read() { return tab[this->readPos()]; }
 private:
-  static constexpr int tab3[3] = {TxMidPulse, TxMinPulse, TxMaxPulse}; 
-  static constexpr int tab2[2] = {TxMinPulse, TxMaxPulse};
-  const int *tab = tab2;
+  static constexpr int tab[3] = {TxMinPulse, TxMidPulse, TxMaxPulse}; 
   PushButton *leftP, *rightP = 0;
 };
 
-class DipSwitch {
+class DipSwitch {  
 public:
   static const int MAX_DIPS = 4;
   DipSwitch(int nr, int pins[]) { 
     _nr = nr;
     for (int s = 0; s < _nr; s++) { _switch[s] = new Switch(pins[s]); };
   }
-  int readOne(int s) { return (int)_switch[s]->readPos(); }
+  int readOne(int s) { return (int)(_switch[s]->readPos() == Switch::Left); }
   int read() {  // aggregated binairy result of all switches
     int res = 0;
     for (int s = 0; s < _nr; s++) { res += (s+1) * readOne(s); }
@@ -439,7 +441,7 @@ class CMD { // CoMmanD interpreter
       char* param = strsep(&cmdline, " ");
 	  if (nvs->isParam(param)) { 
 		if (nvs->isStr(param)) {
-          Serial.printf("set %s %s\n", param, cmdline);
+          // Serial.printf("set %s %s\n", param, cmdline);
           nvs->writeStr(param, cmdline);
           log->printf("%s=%s\n", param, cmdline);
 		} else {

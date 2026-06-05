@@ -1,6 +1,40 @@
 Added/changed:
-- Tx mode TwoChans added
-- Tx mode chan1 for 2 or 3 pos switch added
+- refactor class Switch
+- added NVS params nrChans and vBatt, to avoid floating analog inputs
+- added Rx nvs ch1Left = 1000, ch1Right = 2000, ch1Middle = 1500 
+- logging will always restart at (re)boot 
+- update PCB v2
+
+
+todo
+- change board on laptop reset all nvs values to default?
+Preferences mySketchPrefs;
+String doesExist;
+mySketchPrefs.begin("myPrefs", false);   // open (or create and then open if it does not
+                                         //  yet exist) the namespace "myPrefs" in RW mode.
+bool doesExist = mySketchPrefs.isKey("myTestKey");
+if (doesExist == false) {
+    /*
+       If doesExist is false, we will need to create our
+        namespace key(s) and store a value into them.
+   */
+
+   // Insert your "first time run" code to create your keys & assign their values below here.
+}
+else {
+   /*
+       If doesExist is true, the key(s) we need have been created before
+        and so we can access their values as needed during startup.
+   */
+
+   // Insert your "we've been here before" startup code below here.
+}
+- BLE app phone does not refresh devName
+- Tx starts beeping after x mins not used
+- exponential throttle curve
+  can use (limited) floats?? lookup table?? N knee points with linear interpolation
+- Vbat low blijven piepen en is te zacht voor in broek
+  test bigger beeper
 
 hall sensor or pot and output a 0.8–4V throttle signal
 use simple crank and slider, max 180 degress and not linear
@@ -9,9 +43,6 @@ Rack and pinion stl?
 
 Design StateMachine and refactor code
 
-- 
-- Vbat low blijven piepen en is te zacht voor in broek
-  test bigger beeper
   
 - bind using BLE or wifi better option than virtual macaddress!!??
   alternative use list: <devName> <macadr>
@@ -27,7 +58,7 @@ Design StateMachine and refactor code
   idea: add status InfoBeep for this purpose
   in update: only if status==InfoBeep only go to StatusOk if beep 'expired'
 
-- Tx starts beeping after x mins not used
+
 - test with C6 devkit debugging on new breadboard, use wire or dipswitch for TH
 - test new software on prototype boards
   Rx: A0 thr, A2 vbat
@@ -35,14 +66,8 @@ Design StateMachine and refactor code
 - ?? softstart option for CLtimer and combat handle (= startup ramp %)
   rampup time if starting from zero
    most ESCs have a similar function
-- exponential throttle curve
-  can use (limited) floats?? lookup table?? N knee points with linear interpolation
-- idea extra switch(es) on Tx box with battery on belt and fixed cable to handle
 
-- Small tx pcb: no connectors, no diode
-  size = size C6 + one collumn left and right
-  Rs below C6, in middle??
-  4 corners of C6 extra black spacers if more clearance needed
+- Small tx pcb: 
   use JST PH connector for VBat or solder connection for JST-PH red connector
   use possibilty for horizontal Esc servo connector
   Ideas: 
@@ -80,7 +105,6 @@ Resulting voltages
 Now you truly get three stable, well separated levels.
 Use 20K Rs!
 
-- sometimes warning: adc_oneshot_get_calibrated_result(328): adc oneshot read fail
 - move repro to https://codeberg.org/??
 - esp-now analyser https://wiki.wireshark.org/ESP_Preferences
 
