@@ -1,14 +1,30 @@
 Added/changed:
-- Added NVS presistant (non-editable) parameters
-- Servo reads current position at boot for initialising _last postion
+- added NVSNameSpace as global const to OpenRC4CL_util.h
+- fixed devName bug, is now read from NVS if available
+- added bindtab and bind command
 
-- Wrong devName in BLE app due to
-  SerialBLE(devName) is created before NVS
-  idea make static NVS funcrion to query devName (or use static const nvs name)
-  maybe Preferences pref at global scope needed
-  String GetStringNVS(char* nmspace, char* key)
-  int GetIntNVS(char* nmspace, char* key)
-- https://learn.adafruit.com/bluefruit-le-connect/ios-setup
+- log status on BLE connect
+#include <BLESerial.h>
+BLESerial BLE;
+void setup() {
+    Serial.begin(115200);
+    BLE.onConnect([](BLEServer* server) {
+        Serial.println("BLE client connected");
+    });
+    BLE.onDisconnect([](BLEServer* server) {
+        Serial.println("BLE client disconnected");
+    });
+    BLE.begin("MyESP32-C6");
+    Serial.println("BLESerial ready");
+}
+void loop() {
+    if (BLE.available()) {
+        int c = BLE.read();
+        Serial.write(c);
+    }
+}
+
+- add CMDs addBind and showBind
 - Tx starts beeping after x mins not used
 - exponential throttle curve
   can use (limited) floats?? lookup table?? N knee points with linear interpolation
@@ -22,9 +38,6 @@ Rack and pinion stl?
 
 Design StateMachine and refactor code
 Refactor CMD code use design pattern and make possible to add cmd Tx or Rx specific
-
-- bind using BLE or wifi better option than virtual macaddress!!??
-  alternative use list: <devName> <macadr> use secret,h to initialize
 
 - generic logging (like blackbox) on C6
 - Next Tx charge by usb with sealing cap.

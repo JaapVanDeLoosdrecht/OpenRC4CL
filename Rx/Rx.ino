@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 13 June 2026
+Rx OpenRC4CL 14 June 2026
 
 MIT license
 
@@ -28,15 +28,21 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <WiFi.h>
 #include <limits.h>
 #include "OpenRC4CL_util.h"
-char* macTx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMD: set macPeer 00:00:00:00:00:00
+#include "secret.h" // NOTE: file secret.h contains mac adrs used by developper and is NOT part of distro, comment out this line!!!
+#ifndef OpenRC4CL_SECRET
+BindElm txTab[] = { {"Tx-OpenRC4CL", "00:00:00:00:00:00"},   // modify with your devName and mac address of Tx or use serial CMDs
+//                  {"Tx-name2", "00:00:00:00:00:00"},       // you can add more Txs
+                  };
+#endif
 
 // system
 const unsigned long FAILSAFE_TIME = 500;    // ms
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
 const int lipoDivR2 = 100000;               // R2 lipo voltage divider
 // user settings (NVS params)
-String devName = "Rx-OpenRC4CL";
-String macPeer(macTx); 
+String devName = "Rx-OpenRC4CL";            // modify with your Rx devName and or use serial CMD
+String devPeer = rxTab[0].devName; 
+String macPeer(rxTab[0].mac); 
 String passwd = "123";
 String date = buildDate();
 int wifiChan = 6;                           // [1..13]
@@ -55,9 +61,9 @@ int ch1Right = 2000;
 
 NVS* buildNVS(Logger *log) {
   const int max_nvs_params = 32; 
-  // nvs_erase();
-  NVS* nvs = new NVS(max_nvs_params, log); 
+  NVS* nvs = new NVS(NVSNameSpace, max_nvs_params, log); 
   nvs->add(NVS_STR(devName, true));
+  nvs->add(NVS_STR(devPeer, true));
   nvs->add(NVS_STR(macPeer, true));
   nvs->add(NVS_STR(passwd, true));
   nvs->add(NVS_STR(date, false));
@@ -177,13 +183,20 @@ private:
 
 Rx *rx = 0;                   // initialisation must be in setup 
 CMD* cmd = 0; 
+BindTab* bindTab = 0;
 
 void setup() {
+  // nvs_erase();
+  String dn = GetStringNVS(NVSNameSpace, "devName");
+  if (dn != String("")) devName = dn;
   Serial.begin(115200);
   SerialBLE.begin(devName);
+  bindTab = new BindTab(10);
+  int nr = sizeof(txTab) / sizeof(BindElm);
+  for (int i = 0; i < nr; i++) bindTab->Add(txTab[i].devName, txTab[i].mac);
   Logger *logger = new Logger;    // Serial and BLE logger
   NVS* nvs = buildNVS(logger);
-  cmd = new CMD(nvs, logger);
+  cmd = new CMD(nvs, logger, bindTab);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   logger->printf("OpenRC4CL %s Rx %s channel=%d MAC-Rx=%s MAC-Tx=%s\n", 
                   OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str(),macPeer.c_str());

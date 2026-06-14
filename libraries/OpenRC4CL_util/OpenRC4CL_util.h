@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 13 June 2026
+Utils for OpenRC4CL 14 June 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.15"; 
+const char *OpenRC4CL_VERSION = "1.0.16"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -76,6 +76,8 @@ const int TxMaxPulse = 2000;
 const int TxMidPulse = TxMinPulse + (TxMaxPulse - TxMinPulse) / 2;
 const int ThrHoldDelta = 100;  
 const int TxThrottleHoldPulse = TxMinPulse - ThrHoldDelta;
+
+const char* NVSNameSpace = "OpenRC4CL";
 
 String buildDate() {
   char month[4];
@@ -311,12 +313,21 @@ private:
   char *_buf = 0; int _max_buf;
 };
 
+String GetStringNVS(const char* nmspace, const char* key) {
+  Preferences pref;
+  pref.begin(nmspace, true);  // read mode
+  String str = (pref.isKey(key)) ? pref.getString(key) : String("");
+  pref.end();
+  return str;  
+}
+
 struct NVS_PARAM { char* name; bool edit; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
 #define NVS_INT(p, e, min, max) {#p, e, PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
 #define NVS_STR(p, e) {#p, e, PT_STR, 0, 0, 0, 0, &p, p.c_str()}
 class NVS {  // Non Volatile Storage
 public:
-  NVS(const int max_ps, Logger *logger) { 
+  NVS(const char* nspace, const int max_ps, Logger *logger) { 
+    nmspace = nspace;
     max_params = max_ps;
     tab = new NVS_PARAM[max_params]; 
     nr_params = 0;
@@ -380,7 +391,7 @@ private:
     log->printf("Unknown NVS param name:%s\n", name);
     return 0;
   }
-  char* nmspace = "OpenRC4CL";
+  const char* nmspace = 0; //"OpenRC4CL";
   Preferences pref;
   NVS_PARAM* tab = 0; 
   int max_params;
@@ -393,12 +404,35 @@ static void nvs_erase() {  // erase the NVS partition
   Serial.print(F("NVS erased!\n"));
 }
 
+struct BindElm { char* devName; char* mac; };
+class BindTab {
+public:
+  BindTab(const int maxBinds) {
+    max = maxBinds;
+    tab = new BindElm[max];
+  }
+  bool Add(char* devName, char* mac) {
+	if (nr > max) return false; 
+	tab[nr].devName = devName;
+	tab[nr].mac = mac;
+	nr++;
+	return true;
+  }
+  char* Mac(const char* devName) { 
+    for (int i = 0; i < nr; i++) if (!strcmp(tab[i].devName, devName)) return tab[i].mac;
+    return 0;
+  }
+  int nr = 0, max = 0;
+  BindElm* tab = 0;
+};
+
 class CMD { // CoMmanD interpreter
   public:
-    CMD(NVS* _nvs, Logger *logger) { 
+    CMD(NVS* _nvs, Logger *logger, BindTab* bTab) { 
       nvs = _nvs;
       log = logger;
-	  tab = nvs->nvsTab(); 
+	  tab = nvs->nvsTab();
+      bindTab = bTab;	  
       nr_params = nvs->nrParams();
       Serial.printf("%s=%s\n", passwdCmd, nvs->readStr(passwdCmd)); // Note log passwd to console only!
     }
@@ -409,8 +443,10 @@ class CMD { // CoMmanD interpreter
       else if (!strcmp(cmd, "set")) set(cmdline);
       else if (!strcmp(cmd, "get")) get(cmdline);
       else if (!strcmp(cmd, "list")) list();
+      else if (!strcmp(cmd, "bindtab")) bindtab();
+      else if (!strcmp(cmd, "bind")) bind(cmdline);
       else if (!strcmp(cmd, "mac")) log->printf("mac=%s\n", WiFi.macAddress().c_str());
-      else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nmac\nhelp\nversion\ndefault\nreboot\nlock\n");
+      else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nbindtab\nbind\nmac\nhelp\nversion\ndefault\nreboot\nlock\n");
       else if (!strcmp(cmd, "version")) log->printf("%s\n", OpenRC4CL_VERSION);
       else if (!strcmp(cmd, "default")) { nvs_erase(); ESP.restart(); }
       else if (!strcmp(cmd, "reboot")) ESP.restart();
@@ -483,6 +519,22 @@ class CMD { // CoMmanD interpreter
 		p++;
       }
 	}
+    void bindtab() {
+	  for (int i = 0; i < bindTab->nr; i++) {
+		BindElm* b = &(bindTab->tab[i]);
+		log->printf("%s=%s\n", b->devName, b->mac);
+	  }
+	}
+	void bind(char *cmdline) {
+	  if (!cmdline) { log->printf("invalid command\n"); return; }
+	  if (char* mac = bindTab->Mac(cmdline)) {
+	    nvs->writeStr("macPeer", mac);
+	    nvs->writeStr("devPeer", cmdline);
+	    ESP.restart();
+	  } else {
+        log->printf("Unkown devName %\n", cmdline);
+	  }
+	}
     static constexpr char* passwdCmd = "passwd";
     static const int BUF_LENGTH = 32;
     char buffer[BUF_LENGTH];
@@ -492,6 +544,7 @@ class CMD { // CoMmanD interpreter
     int nr_params = 0;
     NVS* nvs = 0;
     Logger *log = 0;
+	BindTab *bindTab = 0;
 };
 
 class RcPeer : public ESP_NOW_Peer {  // ESP peer wrapper for Tx and Rx

@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 5 June 2026
+TX OpenRC4CL 14 June 2026
 
 MIT license
 
@@ -24,13 +24,16 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
 // Tx com5 (proto=8) white 1st usb 
 
-// primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
-
 #include <MacAddress.h>
 #include <WiFi.h>
 #include <limits.h>
 #include "OpenRC4CL_util.h"  
-char* macRx = "00:00:00:00:00:00";          // modify with your mac address of Tx or use serial CMD: set macPeer 00:00:00:00:00:00
+#include "secret.h" // NOTE: file secret.h contains mac adrs used by developper and is NOT part of distro, comment out this line!!!
+#ifndef OpenRC4CL_SECRET
+BindElm rxTab[] = { {"Rx-OpenRC4CL", "00:00:00:00:00:00"},   // modify with your devName and mac address of Rx or use serial CMDs
+//                  {"Rx-name2", "00:00:00:00:00:00"},       // you can add more Rxs
+                  };
+#endif
 
 // system
 const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no overleap with TH
@@ -38,8 +41,9 @@ const int deadBandMin = -deadBandMax;
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
 const int lipoDivR2 = 10000;                // R2 lipo voltage divider
 // user settings (NVS params)
-String devName = "Tx-OpenRC4CL";
-String macPeer(macRx); 
+String devName = "Tx-OpenRC4CL";            // modify with your Tx devName and or use serial CMD
+String devPeer = rxTab[0].devName; 
+String macPeer(rxTab[0].mac); 
 String passwd = "123";
 String date = buildDate();
 int wifiChan = 6;                           // [1..13]
@@ -53,9 +57,9 @@ int vBatt = 1;                              // 0 = no vBatt connected, 1 = vBatt
 
 NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 32; 
-  // nvs_erase();
-  NVS* nvs = new NVS(max_nvs_params, logger); 
+  NVS* nvs = new NVS(NVSNameSpace, max_nvs_params, logger); 
   nvs->add(NVS_STR(devName, true));
+  nvs->add(NVS_STR(devPeer, true));
   nvs->add(NVS_STR(macPeer, true));
   nvs->add(NVS_STR(passwd, true));
   nvs->add(NVS_STR(date, false));
@@ -172,17 +176,24 @@ private:
 
 Tx *tx = 0;    // initialisation must be in setup due to changing pinModes to OUTPUT
 CMD* cmd = 0; 
+BindTab* bindTab = 0;
 
 void setup() {
+  // nvs_erase();
+  String dn = GetStringNVS(NVSNameSpace, "devName");
+  if (dn != String("")) devName = dn;
   Serial.begin(115200);
   SerialBLE.begin(devName); 
+  bindTab = new BindTab(10);
+  int nr = sizeof(rxTab) / sizeof(BindElm);
+  for (int i = 0; i < nr; i++) bindTab->Add(rxTab[i].devName, rxTab[i].mac);
   Logger *logger = new Logger;    // Serial and BLE logger
   NVS* nvs = buildNVS(logger);
-  cmd = new CMD(nvs, logger);
+  cmd = new CMD(nvs, logger, bindTab);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   while (!WiFi.STA.started()) delay(100);
-  logger->printf("OpenRC4CL %s Tx %s channel=%d MAC-Tx=%s MAC-Rx=%s\n", 
-                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str(), macPeer.c_str());
+  logger->printf("OpenRC4CL %s Tx=%s channel=%d Rx=%s\nMAC-Tx=%s MAC-Rx=%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, devPeer.c_str(), WiFi.macAddress().c_str(), macPeer.c_str());
   tx = new Tx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
