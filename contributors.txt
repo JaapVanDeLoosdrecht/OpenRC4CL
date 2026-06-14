@@ -1,1 +1,3 @@
+- Modelbouw forum user F2B: idea of using ESP now for communication between TX and Rx
 - Bruno van de Hoek: idea and code example for exponential throttle
+- 

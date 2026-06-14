@@ -1,35 +1,14 @@
 Added/changed:
-- refactor class Switch
-- added NVS params nrChans and vBatt, to avoid floating analog inputs
-- added Rx nvs ch1Left = 1000, ch1Right = 2000, ch1Middle = 1500 
-- logging will always restart at (re)boot 
-- update PCB v2
+- Added NVS presistant (non-editable) parameters
+- Servo reads current position at boot for initialising _last postion
 
-
-todo
-- change board on laptop reset all nvs values to default?
-Preferences mySketchPrefs;
-String doesExist;
-mySketchPrefs.begin("myPrefs", false);   // open (or create and then open if it does not
-                                         //  yet exist) the namespace "myPrefs" in RW mode.
-bool doesExist = mySketchPrefs.isKey("myTestKey");
-if (doesExist == false) {
-    /*
-       If doesExist is false, we will need to create our
-        namespace key(s) and store a value into them.
-   */
-
-   // Insert your "first time run" code to create your keys & assign their values below here.
-}
-else {
-   /*
-       If doesExist is true, the key(s) we need have been created before
-        and so we can access their values as needed during startup.
-   */
-
-   // Insert your "we've been here before" startup code below here.
-}
-- BLE app phone does not refresh devName
+- Wrong devName in BLE app due to
+  SerialBLE(devName) is created before NVS
+  idea make static NVS funcrion to query devName (or use static const nvs name)
+  maybe Preferences pref at global scope needed
+  String GetStringNVS(char* nmspace, char* key)
+  int GetIntNVS(char* nmspace, char* key)
+- https://learn.adafruit.com/bluefruit-le-connect/ios-setup
 - Tx starts beeping after x mins not used
 - exponential throttle curve
   can use (limited) floats?? lookup table?? N knee points with linear interpolation
@@ -42,10 +21,10 @@ test 90 degrees rotation of 300 potmeter
 Rack and pinion stl?
 
 Design StateMachine and refactor code
+Refactor CMD code use design pattern and make possible to add cmd Tx or Rx specific
 
-  
 - bind using BLE or wifi better option than virtual macaddress!!??
-  alternative use list: <devName> <macadr>
+  alternative use list: <devName> <macadr> use secret,h to initialize
 
 - generic logging (like blackbox) on C6
 - Next Tx charge by usb with sealing cap.

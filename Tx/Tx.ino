@@ -26,12 +26,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
 
-// Tx hardware choices
-// #define Chan1Left                         // Chan1 2 pos switch on pinLeftCh1 otherwise chan1 has 3 pos switch
-// #define Chan1Right                        // Chan1 2 pos switch on pinRightCh1 otherwise chan1 has 3 pos switch
-// #define TwoChans                          // otherwise 4 or 5 chans, note: connect not used anlog input to GND to avoid adc oneshot read fail
-// #define FiveChans                      // Note: needs soldering extra wire on PCB V1
-
 #include <MacAddress.h>
 #include <WiFi.h>
 #include <limits.h>
@@ -49,7 +43,7 @@ String macPeer(macRx);
 String passwd = "123";
 String date = buildDate();
 int wifiChan = 6;                           // [1..13]
-int deadBand = 0;                           // for TH low
+int deadBand = 0;                           // deadband delta for TH low
 int txBattLow = 3500;                       // min voltage for Tx lipo
 int nrWarns = 10;                           // number beeps if TxBattLow or timer is expired number 
 int logging = 1;                            // 1: log status, 0: no log
@@ -61,35 +55,29 @@ NVS* buildNVS(Logger *logger) {
   const int max_nvs_params = 32; 
   // nvs_erase();
   NVS* nvs = new NVS(max_nvs_params, logger); 
-  nvs->add(NVS_STR(devName));
-  nvs->add(NVS_STR(macPeer));
-  nvs->add(NVS_STR(passwd));
-  nvs->add(NVS_STR(date));
-  nvs->add(NVS_INT(wifiChan, 1, 13));
-  nvs->add(NVS_INT(deadBand, deadBandMin, deadBandMax));  // deadband delta for throttle
-  nvs->add(NVS_INT(txBattLow, 3000, 4350));
-  nvs->add(NVS_INT(nrWarns, 1, 20));
-  nvs->add(NVS_INT(logging, 0, 1));
-  nvs->add(NVS_INT(nrChans, 2, 5));
-  nvs->add(NVS_INT(ch1Switch, 0, 2));
-  nvs->add(NVS_INT(vBatt, 0, 1));
-  logging = 1;  // always reset logging to true at boot
-  nvs->writeInt("logging", logging);
+  nvs->add(NVS_STR(devName, true));
+  nvs->add(NVS_STR(macPeer, true));
+  nvs->add(NVS_STR(passwd, true));
+  nvs->add(NVS_STR(date, false));
+  nvs->add(NVS_INT(wifiChan, true, 1, 13));
+  nvs->add(NVS_INT(deadBand, true, deadBandMin, deadBandMax));
+  nvs->add(NVS_INT(txBattLow, true, 3000, 4350));
+  nvs->add(NVS_INT(nrWarns, true, 1, 20));
+  nvs->add(NVS_INT(logging, false, 0, 1));
+  nvs->add(NVS_INT(nrChans, true, 2, 5));
+  nvs->add(NVS_INT(ch1Switch, true, 0, 2));
+  nvs->add(NVS_INT(vBatt, true, 0, 1));
   return nvs;
 }
-
-#define Chan1Pins(pos) (pos == 1 ? pinLeftCh1 : (pinLeftCh1, pinRightCh1))
 
 class Tx : public RcPeer {
 public:
   Tx(MacAddress mac_rx, uint8_t channel, wifi_interface_t iface, const uint8_t *lmk, Logger *log):
     RcPeer(mac_rx, channel, iface, lmk) { logger = log; }
   void wait4ThrHold() {
-    logger->printf("[Tx] wait for throttle hold\n");
     status.value = Status::WaitThrHold;
     logStatus(); 
     while (hold.readPos() != Thr_Hold) { delay(100); statusUpdate(); }
-    logger->printf("[Tx] waiting for Rx\n");
     status.value = Status::WaitTxRx;
     logStatus();
   }
@@ -193,14 +181,13 @@ void setup() {
   cmd = new CMD(nvs, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
   while (!WiFi.STA.started()) delay(100);
-  logger->printf("OpenRC4CL %s Tx %s channel=%d MAC Address=%s\n", 
-                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str());
+  logger->printf("OpenRC4CL %s Tx %s channel=%d MAC-Tx=%s MAC-Rx=%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str(), macPeer.c_str());
   tx = new Tx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("Waiting to connect to Rx %s\n", macPeer.c_str()); 
   tx->wait4ThrHold();
 }
 

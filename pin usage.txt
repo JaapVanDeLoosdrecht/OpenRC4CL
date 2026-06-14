@@ -98,6 +98,7 @@ T = analog input
 4 pin audio   ---|---|---|--->   )---|---|---|---
 function       -   H   T   +       -   H   T   +
 color		   B   R   Y   W       B   R   Y   W
+NOTE COLORS AUDIO CABLE ARE DIFFERENT ON DIFFERENT BATCHES???
 			   
 Phases in connecting:
  Tx || - | H | T | + ||
@@ -150,6 +151,7 @@ crimping pin notes with Engineer PA-24 crimping tool:
 -------------------------------------------------
 Tx PCB v1
 
+NOTE COLORS AUDIO CABLE ARE DIFFERENT ON DIFFERENT BATCHES???
 R cable       Black                       White          Red
 Audio cable   Blue        Red             Yellow         White
                -          H                T              +

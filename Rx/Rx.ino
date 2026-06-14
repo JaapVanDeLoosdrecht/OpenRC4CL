@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 5 June 2026
+Rx OpenRC4CL 13 June 2026
 
 MIT license
 
@@ -23,8 +23,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
 // RX com7 (proto=9) black 2nd usb
-
-// primitive bind using cmd mac and set macPeer 00:00:00:00:00:00
 
 #include <MacAddress.h>
 #include <WiFi.h>
@@ -59,25 +57,23 @@ NVS* buildNVS(Logger *log) {
   const int max_nvs_params = 32; 
   // nvs_erase();
   NVS* nvs = new NVS(max_nvs_params, log); 
-  nvs->add(NVS_STR(devName));
-  nvs->add(NVS_STR(macPeer));
-  nvs->add(NVS_STR(passwd));
-  nvs->add(NVS_STR(date));
-  nvs->add(NVS_INT(wifiChan, 1, 13));
-  nvs->add(NVS_INT(maxTime, 10, 10*60));
-  nvs->add(NVS_INT(vBattLow, 3000, 8*4350));
-  nvs->add(NVS_INT(escWarn, 0, 1));
-  nvs->add(NVS_INT(nrWarns, 0, 10));
-  nvs->add(NVS_INT(stopEngine, 0, 10));
-  nvs->add(NVS_INT(minThrottle, TxMinPulse, TxMaxPulse));
-  nvs->add(NVS_INT(nrPackets, 50, 1000));
-  nvs->add(NVS_INT(logging, 0, 1));
-  nvs->add(NVS_INT(vBatt, 0, 1));
-  nvs->add(NVS_INT(ch1Left, TxMinPulse, TxMaxPulse));
-  nvs->add(NVS_INT(ch1Middle, TxMinPulse, TxMaxPulse));
-  nvs->add(NVS_INT(ch1Right, TxMinPulse, TxMaxPulse));
-  logging = 1;  // always reset logging to true at boot
-  nvs->writeInt("logging", logging);
+  nvs->add(NVS_STR(devName, true));
+  nvs->add(NVS_STR(macPeer, true));
+  nvs->add(NVS_STR(passwd, true));
+  nvs->add(NVS_STR(date, false));
+  nvs->add(NVS_INT(wifiChan, true, 1, 13));
+  nvs->add(NVS_INT(maxTime, true, 10, 10*60));
+  nvs->add(NVS_INT(vBattLow, true, 3000, 8*4350));
+  nvs->add(NVS_INT(escWarn, true, 0, 1));
+  nvs->add(NVS_INT(nrWarns, true, 0, 10));
+  nvs->add(NVS_INT(stopEngine, true, 0, 10));
+  nvs->add(NVS_INT(minThrottle, true, TxMinPulse, TxMaxPulse));
+  nvs->add(NVS_INT(nrPackets, true, 50, 1000));
+  nvs->add(NVS_INT(logging, false, 0, 1));
+  nvs->add(NVS_INT(vBatt, true, 0, 1));
+  nvs->add(NVS_INT(ch1Left, true, TxMinPulse, TxMaxPulse));
+  nvs->add(NVS_INT(ch1Middle, true, TxMinPulse, TxMaxPulse));
+  nvs->add(NVS_INT(ch1Right, true, TxMinPulse, TxMaxPulse));
   return nvs;
 }
 
@@ -189,15 +185,14 @@ void setup() {
   NVS* nvs = buildNVS(logger);
   cmd = new CMD(nvs, logger);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
-  logger->printf("OpenRC4CL %s Rx %s channel=%d MAC Address=%s\n", 
-                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str());
+  logger->printf("OpenRC4CL %s Rx %s channel=%d MAC-Rx=%s MAC-Tx=%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str(),macPeer.c_str());
   rx = new Rx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx->add_self())) {
     logger->printf("Failed to initialize Rx, rebooting in 2 seconds...\n");
     delay(2000); ESP.restart();
   }
-  logger->printf("Waiting to connect to Tx %s\n", macPeer.c_str()); 
 }
 
 void loop() {

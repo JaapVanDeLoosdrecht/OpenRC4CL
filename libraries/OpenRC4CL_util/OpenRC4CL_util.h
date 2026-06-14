@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 5 June 2026
+Utils for OpenRC4CL 13 June 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.14"; 
+const char *OpenRC4CL_VERSION = "1.0.15"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -220,6 +220,7 @@ public:
   _pin = pin;
     set(min, max, mid, fail, reverse);
     servo.attach(pin, min, max);
+	_last = read();
 	failsafe();
   }
   ~RcServo() { servo.detach(); }
@@ -310,9 +311,9 @@ private:
   char *_buf = 0; int _max_buf;
 };
 
-struct NVS_PARAM { char* name; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
-#define NVS_INT(p, min, max) {#p, PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
-#define NVS_STR(p) {#p, PT_STR, 0, 0, 0, 0, &p, p.c_str()}
+struct NVS_PARAM { char* name; bool edit; PreferenceType p_type; int* int_p; int int_0; int min; int max; String* str_p; String str_0; };
+#define NVS_INT(p, e, min, max) {#p, e, PT_I32, &p, p, min, max, 0, ""}  // see Preference.h source code
+#define NVS_STR(p, e) {#p, e, PT_STR, 0, 0, 0, 0, &p, p.c_str()}
 class NVS {  // Non Volatile Storage
 public:
   NVS(const int max_ps, Logger *logger) { 
@@ -325,12 +326,19 @@ public:
 	if (nr_params >= max_params-1) { log->printf("Error: NVS table full\n"); return; }
 	NVS_PARAM* p = &tab[nr_params];
 	tab[nr_params++] = np;
-    pref.begin(nmspace, true);  // readonly, initialse from eprom or use default from table
-    if (isStr(p->name)) { 
-	  *(p->str_p) = pref.getString(p->name, p->str_0);
-	} else { // PT_I32
-	  *(p->int_p) = pref.getInt(p->name, p->int_0);
-    }
+    pref.begin(nmspace, false);  // read/write mode
+    if (pref.isKey(p->name) && p->edit) {
+      if (isStr(p->name)) {      // initialse from eprom
+	    *(p->str_p) = pref.getString(p->name);
+	  } else { // PT_I32
+	    *(p->int_p) = pref.getInt(p->name);
+      }
+	} else {                     // initialse with default from table
+      if (p->p_type == PT_STR)   
+	    writeStr(p->name, p->str_0);
+	  else // PT_I32
+	    writeInt(p->name, p->int_0);
+	}
     pref.end();  
   }
   int nrParams(void) { return nr_params; }
@@ -363,7 +371,7 @@ public:
     if (p == 0) return;
     pref.begin(nmspace, false);  // read/write
     pref.putString(p->name, value);
-    *(p-> str_p) = value;
+    *(p->str_p) = value;
     pref.end();
   }
 private:
