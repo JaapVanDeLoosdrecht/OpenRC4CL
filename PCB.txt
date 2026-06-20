@@ -1,3 +1,13 @@
+PCB V2:
+- Tx: jmp to 3V
+- Rx: jmp diode cathode 5V 1N5819, use thin version 1N5819, otherwise backside
+  maybe backside better die to inference?? test this on breadboard
+- area under collumn D6-D8 free for Batt wires
+- Tx potmeter/chan1 wired
+- RX servo connectors at bottom or wired
+- R(T)x (V)bat wired JST 2 pin red
+- Rx: C6-bat, vbat-jst
+
 PCB V1:
 - Tx (ESC = thr potmeter, C1 analog input, C2 digital switch, C3 'missuse as TH):
   - order solder:
@@ -23,7 +33,6 @@ PCB V1:
 	- VBat connector
 	- ESP32C6 on headers on PCB
 	- 4 * angled servo connector
-- one PCB for Tx, Rx and Timer
 - Analog/Radio Frequency (RF): Do not place ground fill directly under antennas (like on an ESP32 or radio module).
 - Antenna
   orientatie internal antenna = opposite side of usb

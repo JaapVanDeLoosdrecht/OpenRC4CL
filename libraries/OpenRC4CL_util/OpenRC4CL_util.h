@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 14 June 2026
+Utils for OpenRC4CL 19 June 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.16"; 
+const char *OpenRC4CL_VERSION = "1.0.17"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>
@@ -55,8 +55,8 @@ BLESerial<> SerialBLE;         // make SerialBLE global accesable like Serial, u
 extern BLESerial<> SerialBLE;  // windows 11 https://github.com/healthywalk/BLE-Serial-Terminal, use CR+LF
 
 struct Status {	
-  enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   VBattLow,   TxBattLow,   EndFlight,   Failsafe,   WaitStart,   Error };
-  static inline const char* const  strTab[9] = { "Ok", "WaitThrHold", "WaitTxRx", "VBattLow", "TxBattLow", "EndFlight", "Failsafe", "WaitStart", "Error" };
+  enum StatusId                                {  Ok,   WaitThrHold,   WaitTxRx,   RxBattLow,   TxBattLow,   EndFlight,   Failsafe,   WaitStart,   Error };
+  static inline const char* const  strTab[9] = { "Ok", "WaitThrHold", "WaitTxRx", "RxBattLow", "TxBattLow", "EndFlight", "Failsafe", "WaitStart", "Error" };
   static constexpr const int pulseTab[9] =     {  0,    1000,          0,          2000,       2000,        2000,        500,        1000,        200 };
   static const char* val2str(int val) { return strTab[val]; }  
   Status(StatusId s=Error) { value = s; }
@@ -313,7 +313,7 @@ private:
   char *_buf = 0; int _max_buf;
 };
 
-String GetStringNVS(const char* nmspace, const char* key) {
+String GetStringNVS(const char* nmspace, const char* key) { 
   Preferences pref;
   pref.begin(nmspace, true);  // read mode
   String str = (pref.isKey(key)) ? pref.getString(key) : String("");
@@ -337,6 +337,7 @@ public:
 	if (nr_params >= max_params-1) { log->printf("Error: NVS table full\n"); return; }
 	NVS_PARAM* p = &tab[nr_params];
 	tab[nr_params++] = np;
+	Preferences pref; 
     pref.begin(nmspace, false);  // read/write mode
     if (pref.isKey(p->name) && p->edit) {
       if (isStr(p->name)) {      // initialse from eprom
@@ -368,6 +369,7 @@ public:
 	  log->printf("Error: value must be in range %d..%d\n", p->min, p->max);
       return;
 	}
+	Preferences pref; 
     pref.begin(nmspace, false);  // read/write
     pref.putInt(p->name, value);
     *(p->int_p) = value;
@@ -380,6 +382,7 @@ public:
   void writeStr(char* name, String value) { 
     NVS_PARAM* p = getParam(name);
     if (p == 0) return;
+	Preferences pref; 
     pref.begin(nmspace, false);  // read/write
     pref.putString(p->name, value);
     *(p->str_p) = value;
@@ -392,7 +395,6 @@ private:
     return 0;
   }
   const char* nmspace = 0; //"OpenRC4CL";
-  Preferences pref;
   NVS_PARAM* tab = 0; 
   int max_params;
   int nr_params;
@@ -407,23 +409,79 @@ static void nvs_erase() {  // erase the NVS partition
 struct BindElm { char* devName; char* mac; };
 class BindTab {
 public:
-  BindTab(const int maxBinds) {
+  static const int maxStrLen = 19;
+  struct Elm { char devName[(maxStrLen+1)]; char mac[(maxStrLen+1)]; };  // +1 for \0
+  BindTab(const char* nvs, const int maxBinds, const int nrBs, BindElm peerTab[]) {
+	nmspace = nvs;
     max = maxBinds;
-    tab = new BindElm[max];
+    tab = new Elm[max];
+	memset(tab, 0, max * sizeof(Elm));
+	if (!read()) {
+	  Serial.printf("Use compile time peerTab");
+	  nr = 0;
+      for (int i = 0; i < nrBs; i++) {
+		BindElm* e = &peerTab[i];
+	    if (!addElm(e->devName, e->mac)) Serial.printf("Can not add bind %s %s", e->devName, e->mac);
+	  }
+      write();
+	}
   }
-  bool Add(char* devName, char* mac) {
-	if (nr > max) return false; 
-	tab[nr].devName = devName;
-	tab[nr].mac = mac;
-	nr++;
+  bool addElm(char* devName, char* mac) {
+	if ((nr > max) || (strlen(devName) > maxStrLen) || (strlen(mac) > maxStrLen)) return false;
+	Elm* e = devNameElm(devName);
+	if (!e) { e = &tab[nr]; nr++; }  // new devName
+    strcpy(e->devName, devName);
+    strcpy(e->mac, mac);	
 	return true;
   }
-  char* Mac(const char* devName) { 
-    for (int i = 0; i < nr; i++) if (!strcmp(tab[i].devName, devName)) return tab[i].mac;
-    return 0;
+  bool add(char* devName, char* mac) {
+	if (!addElm(devName, mac)) return false;
+    write();
+    return true;	
+  }	
+  bool remove(char* devName) {
+  	int idx = devNameElmIdx(devName);
+	if (idx == -1) return false;
+	for (int i = idx; i < nr-1; i++) tab[idx] = tab[idx+1];
+    nr--;
+	write();
+	return true;
+  }
+  char* mac(const char* devName) { 
+	Elm* e = devNameElm(devName);
+	return e ? e->mac : 0;
+  }
+  void write() {  // to NVS todo test
+    Preferences pref;
+    pref.begin(nmspace, false);  // read/write mode
+	pref.putInt(nrKey, nr);
+    pref.putBytes(tabKey, tab, nr*sizeof(Elm));
+    pref.end();
+  }
+  bool read() {  // from NVS todo test
+    Preferences pref;
+    pref.begin(nmspace, true);  // read mode
+	bool inNVS = pref.isKey(tabKey);
+	if (!inNVS) return false;
+    nr = pref.getInt(nrKey);
+	Serial.printf("Read bindtab with #bind=%d\n", nr);
+	pref.getBytes(tabKey, tab, nr*sizeof(Elm)); 
+    pref.end();
+	return true;
+  }
+  int devNameElmIdx(const char* devName) {  // return Elm idx with devName
+    for (int i = 0; i < nr; i++) if (!strcmp(tab[i].devName, devName)) return i;
+    return -1;
+  }
+  Elm* devNameElm(const char* devName) {  // return Elm with devName
+	int idx = devNameElmIdx(devName);
+    return (idx != -1) ? &tab[idx] : 0;
   }
   int nr = 0, max = 0;
-  BindElm* tab = 0;
+  Elm* tab = 0;
+  const char* tabKey = "#bindtab";
+  const char* nrKey = "#nrbinds";
+  const char* nmspace = 0;
 };
 
 class CMD { // CoMmanD interpreter
@@ -437,6 +495,7 @@ class CMD { // CoMmanD interpreter
       Serial.printf("%s=%s\n", passwdCmd, nvs->readStr(passwdCmd)); // Note log passwd to console only!
     }
     void exec(char *cmdline) {
+	  Serial.printf("cmd %s\n", cmdline);
       char *cmd = strsep(&cmdline, " ");
       if (not chk_passwd) passwd(cmd);
 	  else if (!strcmp(cmd, "lock")) chk_passwd = false;
@@ -445,8 +504,10 @@ class CMD { // CoMmanD interpreter
       else if (!strcmp(cmd, "list")) list();
       else if (!strcmp(cmd, "bindtab")) bindtab();
       else if (!strcmp(cmd, "bind")) bind(cmdline);
+      else if (!strcmp(cmd, "addbind")) addbind(cmdline);
+      else if (!strcmp(cmd, "removebind")) removebind(cmdline);
       else if (!strcmp(cmd, "mac")) log->printf("mac=%s\n", WiFi.macAddress().c_str());
-      else if (!strcmp(cmd, "help")) log->printf("set param value\nget param\nbindtab\nbind\nmac\nhelp\nversion\ndefault\nreboot\nlock\n");
+      else if (!strcmp(cmd, "help")) help();
       else if (!strcmp(cmd, "version")) log->printf("%s\n", OpenRC4CL_VERSION);
       else if (!strcmp(cmd, "default")) { nvs_erase(); ESP.restart(); }
       else if (!strcmp(cmd, "reboot")) ESP.restart();
@@ -467,6 +528,27 @@ class CMD { // CoMmanD interpreter
         }
       }
     }
+    void list() {
+      const int maxp = 6;
+	  NVS_PARAM* p = nvs->nvsTab(); 
+      for (int i = 0; i < nvs->nrParams(); i++) {
+        if (strcmp(p->name, passwdCmd)) {
+		  if (nvs->isStr(p->name)) { 
+		    log->printf("%s=%s ", p->name, p->str_p->c_str());
+		  } else {
+		    log->printf("%s=%d ", p->name, *(p->int_p));
+		  }
+		}
+        if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
+		p++;
+      }
+	}
+    void bindtab() {
+	  for (int i = 0; i < bindTab->nr; i++) {
+		BindTab::Elm* b = &(bindTab->tab[i]);
+		log->printf("%s=%s\n", b->devName, b->mac);
+	  }
+	}
   protected:
     bool is_digits(const char *s) {
 	  while(isspace((unsigned char)*s)) s++;
@@ -481,6 +563,19 @@ class CMD { // CoMmanD interpreter
       chk_passwd = nvs->readStr(passwdCmd) == String(cmd); 
       (chk_passwd) ? list() : log->printf("invalid password!\n");
     }
+	void help() {  // not logger has limited buffer lenght
+      log->printf("set param value\n"
+	              "get param\n"
+		          "default  <set all params to default>\n");
+	  log->printf("reboot\n"
+		          "version\n"
+		          "lock     <lock cmds>\n"
+		          "mac\n");
+	  log->printf("bindtab  <show all binds>\n"
+		          "bind devName\n"
+		          "addbind devName mac\n"
+		          "removebind devName\n");
+	}
 	void set(char *cmdline) {
       char* param = strsep(&cmdline, " ");
 	  if (nvs->isParam(param)) { 
@@ -504,39 +599,31 @@ class CMD { // CoMmanD interpreter
         log->printf("%s=%d\n", cmdline, nvs->readInt(cmdline));
 	  }
 	}
-    void list() {
-      const int maxp = 6;
-	  NVS_PARAM* p = nvs->nvsTab(); 
-      for (int i = 0; i < nvs->nrParams(); i++) {
-        if (strcmp(p->name, passwdCmd)) {
-		  if (nvs->isStr(p->name)) { 
-		    log->printf("%s=%s ", p->name, p->str_p->c_str());
-		  } else {
-		    log->printf("%s=%d ", p->name, *(p->int_p));
-		  }
-		}
-        if (((i > 0) && ((i % maxp) == 0)) || (i == nr_params-1)) log->printf("\n");
-		p++;
-      }
-	}
-    void bindtab() {
-	  for (int i = 0; i < bindTab->nr; i++) {
-		BindElm* b = &(bindTab->tab[i]);
-		log->printf("%s=%s\n", b->devName, b->mac);
-	  }
-	}
 	void bind(char *cmdline) {
 	  if (!cmdline) { log->printf("invalid command\n"); return; }
-	  if (char* mac = bindTab->Mac(cmdline)) {
+	  if (char* mac = bindTab->mac(cmdline)) {
 	    nvs->writeStr("macPeer", mac);
 	    nvs->writeStr("devPeer", cmdline);
 	    ESP.restart();
 	  } else {
-        log->printf("Unkown devName %\n", cmdline);
+        log->printf("Unkown devName %s\n", cmdline);
 	  }
 	}
+	void addbind(char *cmdline) {
+	  if (!cmdline) { log->printf("invalid command\n"); return; }
+	  char *devName = strsep(&cmdline, " ");
+	  if (!cmdline) { log->printf("invalid command\n"); return; }
+	  Serial.printf("addbind %s %s\n", devName, cmdline);
+	  if (!bindTab->add(devName, cmdline)) log->printf("error bindtab full\n");
+	  bindtab();
+	}
+	void removebind(char *cmdline) {
+	  if (!cmdline) { log->printf("invalid command\n"); return; }
+	  if (!bindTab->remove(cmdline)) log->printf("Unkown devName %s\n", cmdline);
+	  bindtab();
+	}
     static constexpr char* passwdCmd = "passwd";
-    static const int BUF_LENGTH = 32;
+    static const int BUF_LENGTH = 64;
     char buffer[BUF_LENGTH];
     int length = 0;            // length of line received so far
     bool chk_passwd = false;

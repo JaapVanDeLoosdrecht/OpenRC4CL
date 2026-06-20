@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 14 June 2026
+Rx OpenRC4CL 20 June 2026
 
 MIT license
 
@@ -39,10 +39,11 @@ BindElm txTab[] = { {"Tx-OpenRC4CL", "00:00:00:00:00:00"},   // modify with your
 const unsigned long FAILSAFE_TIME = 500;    // ms
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 8S
 const int lipoDivR2 = 100000;               // R2 lipo voltage divider
+const int maxBinds = 10;                    // max nr of Txs
 // user settings (NVS params)
 String devName = "Rx-OpenRC4CL";            // modify with your Rx devName and or use serial CMD
-String devPeer = rxTab[0].devName; 
-String macPeer(rxTab[0].mac); 
+String devPeer = txTab[0].devName; 
+String macPeer(txTab[0].mac); 
 String passwd = "123";
 String date = buildDate();
 int wifiChan = 6;                           // [1..13]
@@ -186,20 +187,19 @@ CMD* cmd = 0;
 BindTab* bindTab = 0;
 
 void setup() {
-  // nvs_erase();
+  //nvs_erase();
   String dn = GetStringNVS(NVSNameSpace, "devName");
   if (dn != String("")) devName = dn;
   Serial.begin(115200);
   SerialBLE.begin(devName);
-  bindTab = new BindTab(10);
-  int nr = sizeof(txTab) / sizeof(BindElm);
-  for (int i = 0; i < nr; i++) bindTab->Add(txTab[i].devName, txTab[i].mac);
+  bindTab = new BindTab(NVSNameSpace, maxBinds, sizeof(txTab)/sizeof(BindElm), txTab);
   Logger *logger = new Logger;    // Serial and BLE logger
   NVS* nvs = buildNVS(logger);
   cmd = new CMD(nvs, logger, bindTab);
   WiFi.mode(WIFI_STA); WiFi.setChannel(wifiChan);
-  logger->printf("OpenRC4CL %s Rx %s channel=%d MAC-Rx=%s MAC-Tx=%s\n", 
-                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, WiFi.macAddress().c_str(),macPeer.c_str());
+  logger->printf("OpenRC4CL %s Rx=%s channel=%d Tx=%s\nMAC-Rx=%s MAC-Tx=%s\n", 
+                  OpenRC4CL_VERSION, devName.c_str(), wifiChan, devPeer.c_str(), WiFi.macAddress().c_str(),macPeer.c_str());
+  cmd->list(); cmd->bindtab();
   rx = new Rx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   while (!WiFi.STA.started()) delay(100);
   if ((!ESP_NOW.begin()) || (!rx->add_self())) {

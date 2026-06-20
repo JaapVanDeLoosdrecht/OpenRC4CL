@@ -1,5 +1,5 @@
 /* 
-TX OpenRC4CL 14 June 2026
+TX OpenRC4CL 20 June 2026
 
 MIT license
 
@@ -40,6 +40,7 @@ const int deadBandMax = ThrHoldDelta-10;    // deadband delta for throttle, no o
 const int deadBandMin = -deadBandMax;    
 const int lipoDivR1 = 10000;                // R1 lipo voltage divider, max 5V usb, div=2
 const int lipoDivR2 = 10000;                // R2 lipo voltage divider
+const int maxBinds = 10;                    // max nr of Rxs
 // user settings (NVS params)
 String devName = "Tx-OpenRC4CL";            // modify with your Tx devName and or use serial CMD
 String devPeer = rxTab[0].devName; 
@@ -103,7 +104,7 @@ public:
         status.value = Status::Ok;                                                                                                                                                                                              ;
         beepEndFlight = false; // needed if Rx is reset after end of flight
       } else {
-        status.value = (vBattLow) ? Status::VBattLow : Status::EndFlight;
+        status.value = (vBattLow) ? Status::RxBattLow : Status::EndFlight;
       }
     }
     if (logging) 
@@ -184,9 +185,7 @@ void setup() {
   if (dn != String("")) devName = dn;
   Serial.begin(115200);
   SerialBLE.begin(devName); 
-  bindTab = new BindTab(10);
-  int nr = sizeof(rxTab) / sizeof(BindElm);
-  for (int i = 0; i < nr; i++) bindTab->Add(rxTab[i].devName, rxTab[i].mac);
+  bindTab = new BindTab(NVSNameSpace, maxBinds, sizeof(rxTab)/sizeof(BindElm), rxTab);
   Logger *logger = new Logger;    // Serial and BLE logger
   NVS* nvs = buildNVS(logger);
   cmd = new CMD(nvs, logger, bindTab);
@@ -194,6 +193,7 @@ void setup() {
   while (!WiFi.STA.started()) delay(100);
   logger->printf("OpenRC4CL %s Tx=%s channel=%d Rx=%s\nMAC-Tx=%s MAC-Rx=%s\n", 
                   OpenRC4CL_VERSION, devName.c_str(), wifiChan, devPeer.c_str(), WiFi.macAddress().c_str(), macPeer.c_str());
+  cmd->list(); cmd->bindtab();
   tx = new Tx(MacAddress(macPeer), wifiChan, WIFI_IF_STA, nullptr, logger);
   if ((!ESP_NOW.begin()) || (!tx->add_self())) {
     logger->printf("Failed to initialize Tx, rebooting in 2 seconds...\n");

@@ -1,31 +1,15 @@
 Added/changed:
-- added NVSNameSpace as global const to OpenRC4CL_util.h
-- fixed devName bug, is now read from NVS if available
-- added bindtab and bind command
-
-- log status on BLE connect
-#include <BLESerial.h>
-BLESerial BLE;
-void setup() {
-    Serial.begin(115200);
-    BLE.onConnect([](BLEServer* server) {
-        Serial.println("BLE client connected");
-    });
-    BLE.onDisconnect([](BLEServer* server) {
-        Serial.println("BLE client disconnected");
-    });
-    BLE.begin("MyESP32-C6");
-    Serial.println("BLESerial ready");
-}
-void loop() {
-    if (BLE.available()) {
-        int c = BLE.read();
-        Serial.write(c);
-    }
-}
-
-- add CMDs addBind and showBind
+- Status::VBattLow changed to RxBattLow
+- refactor BindTab
+  Allocate all mem at booth and copy values to memory during add
+- Preferences pref;  is now used local in function to avoid multiple open versions
+- added cms addbind and removebind
+- extend help info
+ 
+- extra (same) passwd for cmd default
+- rx status ok if rx-batt low, tx side is correct
 - Tx starts beeping after x mins not used
+- Beep tx at connected
 - exponential throttle curve
   can use (limited) floats?? lookup table?? N knee points with linear interpolation
 - Vbat low blijven piepen en is te zacht voor in broek
@@ -38,6 +22,9 @@ Rack and pinion stl?
 
 Design StateMachine and refactor code
 Refactor CMD code use design pattern and make possible to add cmd Tx or Rx specific
+like bindTab, status, etc
+
+Switch to VS code for debugging and beter src control???
 
 - generic logging (like blackbox) on C6
 - Next Tx charge by usb with sealing cap.
