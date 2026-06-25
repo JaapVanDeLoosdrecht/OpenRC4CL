@@ -1,13 +1,8 @@
 Added/changed:
-- Status::VBattLow changed to RxBattLow
-- refactor BindTab
-  Allocate all mem at booth and copy values to memory during add
-- Preferences pref;  is now used local in function to avoid multiple open versions
-- added cms addbind and removebind
-- extend help info
  
 - extra (same) passwd for cmd default
 - rx status ok if rx-batt low, tx side is correct
+- if not yet done passwd ask first time for passwd
 - Tx starts beeping after x mins not used
 - Beep tx at connected
 - exponential throttle curve
