@@ -1,3 +1,5 @@
+Update Fritzing
+
 PCB V2:
 - Tx: jmp to 3V
 - Rx: jmp diode cathode 5V 1N5819, use thin version 1N5819, otherwise backside
@@ -54,7 +56,7 @@ PCB V1:
   you must route the battery through the bottom BAT pads.
   
 PCB checks:
-- Use ENIG
+- Use HASL (ENIG is not need, first batch V2 is ENIG)
 - Vias for connecting wires are pins must have hole 1mm and ring thickness 0.5mm
 - Click on Via shows all connected wires and other vias
 - add some mounting holes

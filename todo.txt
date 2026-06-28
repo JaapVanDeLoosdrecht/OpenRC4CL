@@ -1,6 +1,8 @@
 Added/changed:
  
-- extra (same) passwd for cmd default
+Todo:
+- Rx-Vbatt-Critical
+  3x esc warning and stop esc
 - rx status ok if rx-batt low, tx side is correct
 - if not yet done passwd ask first time for passwd
 - Tx starts beeping after x mins not used
