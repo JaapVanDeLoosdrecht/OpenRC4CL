@@ -1,6 +1,6 @@
 # OpenRC4CL
 
-![Tx and Rx V1.0](photos/First Tx and Rx PCB V1.0.jpg)
+![Tx and Rx V1.0](photos/First-Tx-and-Rx-PCB-V1_0.jpg)
 
 Control Line (CL), also called U-Control, is a way of controlling model airplanes, see https://en.wikipedia.org/wiki/Control_line.
 
