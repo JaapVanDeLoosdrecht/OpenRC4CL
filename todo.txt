@@ -1,16 +1,40 @@
 Added/changed:
  
 Todo:
+- make notes of special NVA params setting for each model
+- servo tester
+  Tx one time disable TH check at startup
+  After reboot is reseted???????
+  a) seperate Rx module? Tx is needed for potmeter
+  b) make config param and reboot as server tester 
+     one time? or reset needed?
+	 use special warning beeps on tx
+- add images to README.md
 - Rx-Vbatt-Critical
   3x esc warning and stop esc
 - rx status ok if rx-batt low, tx side is correct
+- List is missing in help cmd
+- After connect ble display status like vbatt
 - if not yet done passwd ask first time for passwd
 - Tx starts beeping after x mins not used
 - Beep tx at connected
+- Generalize endpoints for all chans
+  New  cmd: chan [0..4] low middle high fail
+- loader beep??
 - exponential throttle curve
   can use (limited) floats?? lookup table?? N knee points with linear interpolation
 - Vbat low blijven piepen en is te zacht voor in broek
   test bigger beeper
+- use Timer limit for f2b with Esc warning
+
+  
+- PCB v2.1
+  Move text a0 .. a6 alttkd to thd left and skip a3 and a4 for better readability
+  
+Active motor control (F2B(-B)) ideas:
+- Seeed Studio XIAO NRF52840 Sense (mogelijk binnenkort End-of-Life??)
+- Seeed Studio XIAO MG24 Sense
+- Seeed Studio XIAO nRF54LM20A Sense (net op de markt)
 
 hall sensor or pot and output a 0.8–4V throttle signal
 use simple crank and slider, max 180 degress and not linear

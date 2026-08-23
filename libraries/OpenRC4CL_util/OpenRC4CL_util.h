@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.17"; 
+const char *OpenRC4CL_VERSION = "1.0.18"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>

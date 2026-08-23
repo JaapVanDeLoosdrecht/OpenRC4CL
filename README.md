@@ -1,5 +1,7 @@
 # OpenRC4CL
 
+![Tx and Rx V1.0](photos/First Tx and Rx PCB V1.0.jpg)
+
 Control Line (CL), also called U-Control, is a way of controlling model airplanes, see https://en.wikipedia.org/wiki/Control_line.
 
 Low-cost DIY project based on low-cost ESP32C6s for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
