@@ -1,8 +1,5 @@
 # OpenRC4CL
 
-![Tx and Rx V1.0](photos/First-Tx-and-Rx-PCB-V1_0.jpg)
-Tx and Rx PCB V1.0
-
 Control Line (CL), also called U-Control, is a way of controlling model airplanes, see https://en.wikipedia.org/wiki/Control_line.
 
 Low-cost DIY project based on low-cost ESP32C6s for expanding CL handles with Radio Control (RC) functions like throttle control, servos, timers, telemetry and failsafe.
@@ -18,9 +15,19 @@ Feedback is welcome and I am open to ideas and/or collaboration.
 
 See for discussion the (Dutch) Modelbouw forum https://www.modelbouwforum.nl/threads/openrc4cl-diy-lb-met-rc-functies.294026/ .
 
+![Tx and Rx V1.0](photos/First-Tx-and-Rx-PCB-V1_0.jpg)
+Tx and Rx PCB V1.0
+
 ## NOTE: there are two PCBs:
-- PCB V1 (4 channels) is tested
-- PCB V2 is under design and not yet tested. It is smaller and for 2 channels.
+
+![PCB-V1-0](photos/PCB-V1-0.jpg)
+PCB V1 (4 channels) is tested
+
+![PCB-V2-0](photos/OpenRC4CL-PCB-V2.jpg)
+PCB V2 is under design and not yet tested. It is smaller and for 2 channels.
+
+![Fritzing](photos/Fritzing-PCB-V1_0.jpg)
+Both PCBs are designed with Fritzing and the design files are included in this repro.
 
 ## Functional overview OpenRC4CL.
 
