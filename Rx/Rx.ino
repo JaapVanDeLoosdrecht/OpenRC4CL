@@ -1,5 +1,5 @@
 /* 
-Rx OpenRC4CL 20 June 2026
+Rx OpenRC4CL 17 November 2026 
 
 MIT license
 
@@ -21,18 +21,19 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB SPIFFS)
-// RX com7 (proto=9) black 2nd usb
+// NOTE: this is only tested on XIAO ESP32-C6, use partition schema NO OTA (2MB APP/2MB FATFS)
+// RX com8 white 2nd usb
 
 #include <MacAddress.h>
 #include <WiFi.h>
 #include <limits.h>
 #include "OpenRC4CL_util.h"
-#include "secret.h" // NOTE: file secret.h contains mac adrs used by developper and is NOT part of distro, comment out this line!!!
-#ifndef OpenRC4CL_SECRET
-BindElm txTab[] = { {"Tx-OpenRC4CL", "00:00:00:00:00:00"},   // modify with your devName and mac address of Tx or use serial CMDs
-//                  {"Tx-name2", "00:00:00:00:00:00"},       // you can add more Txs
-                  };
+#if __has_include("secret.h") 
+  #include "secret.h" // NOTE: file secret.h contains mac adrs used by developper and is NOT part of this distro
+#else
+  BindElm txTab[] = { {"Tx-OpenRC4CL", "00:00:00:00:00:00"},   // modify with your devName and mac address of Tx or use serial CMDs
+                      // {"Tx-name2", "00:00:00:00:00:00"},    // you can add more Txs
+                   };
 #endif
 
 // system

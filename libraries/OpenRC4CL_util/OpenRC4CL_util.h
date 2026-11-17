@@ -1,5 +1,5 @@
 /* 
-Utils for OpenRC4CL 19 June 2026
+Utils for OpenRC4CL 13 Nov 2026
 
 MIT license
 
@@ -26,7 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef OpenRC4CL_util
 #define OpenRC4CL_util
 
-const char *OpenRC4CL_VERSION = "1.0.18"; 
+const char *OpenRC4CL_VERSION = "1.0.19"; 
 
 #include <ESP32_NOW.h>
 #include <MacAddress.h>

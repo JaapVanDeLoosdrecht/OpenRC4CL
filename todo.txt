@@ -9,10 +9,13 @@ Todo:
   b) make config param and reboot as server tester 
      one time? or reset needed?
 	 use special warning beeps on tx
-- add images to README.md
+- 5 sec delay after list with msg display delay
+  not ? possible due to async logging in msg received interrupts ??
+- Tx log vbatt at startup
 - Rx-Vbatt-Critical
   3x esc warning and stop esc
 - rx status ok if rx-batt low, tx side is correct
+- rx cmd for duplicating esc channel like 2ndesc chnr offset (between two ecs, in order to run outer esc slower at low rpm)
 - List is missing in help cmd
 - After connect ble display status like vbatt
 - if not yet done passwd ask first time for passwd
@@ -33,8 +36,20 @@ Todo:
   
 Active motor control (F2B(-B)) ideas:
 - Seeed Studio XIAO NRF52840 Sense (mogelijk binnenkort End-of-Life??)
+  No: new 2026 https://www.seeedstudio.com/0-96-Inch-Display-Powered-by-XIAO-nRF52840-Plus-p-6992.html
+  https://wiki.seeedstudio.com/getting_started_0.96_inch_display_nrf52840/#resources 
+  NOTE no free Dx and Ax pins
 - Seeed Studio XIAO MG24 Sense
 - Seeed Studio XIAO nRF54LM20A Sense (net op de markt)
+- Seeed Studio XIAO gadged ESP32S3 with display and SD card
+  https://wiki.seeedstudio.com/display_gadgets/
+  https://www.digikey.nl/nl/products/detail/seeed-technology-co-ltd/100069905/30382633
+  https://openelab.io/a/s/products/seeed-studio-xiao-0-96-ips-display-esp32-s3
+  Problens?:
+  -	Geen pinnen voor ESc and VBatt
+  -	5.5V van Esc??
+- SD card https://www.kiwi-electronics.com/nl/microsd-card-breakout-boardplus-3206?country=NL&media_type=image&utm_source=fb&utm_medium=Facebook_Mobile_Feed&utm_campaign=meta_shoppingcampagne_dynamic&fbclid=IwZXh0bgNhZW0BMABwZG9mBGFkaWQAAC_Xzf-Pz3NydGMGYXBwX2lkDzI3NTI1NDY5MjU5ODI3OQABH6jtLmDfwTz4xpBbffO8RKFju0wyUDL6avAqADrC0YKuBCcKS_ylkP8a8-lN_aem_n7YNBN3mVJ5U1BMjNJWGRg&utm_id=6607474896483&utm_content=52560931670087&utm_term=52560931669887
+- MSRC – Multi Sensor Telemetry for RC (RP2040) https://github.com/dgatf/msrc 
 
 hall sensor or pot and output a 0.8–4V throttle signal
 use simple crank and slider, max 180 degress and not linear
@@ -44,8 +59,6 @@ Rack and pinion stl?
 Design StateMachine and refactor code
 Refactor CMD code use design pattern and make possible to add cmd Tx or Rx specific
 like bindTab, status, etc
-
-Switch to VS code for debugging and beter src control???
 
 - generic logging (like blackbox) on C6
 - Next Tx charge by usb with sealing cap.

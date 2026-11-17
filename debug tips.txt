@@ -1,0 +1,18 @@
+Set in Arduino IDE:
+- tools | JTAG adapter = "Integrated USB JTAG"  (set USB ounce with eim-gui-windows-x64-v0.21.1.exe)
+- tools | USB CDC On Boot = Enabled  (enable both debugging and serial output)
+- sketch | Optimize for debugging = Enabled  (not sure whether needed?)
+(not needed but extra info with: tools | Core Deug Level = "Debug")
+
+start debug session with Debug button in left top screen IDE
+debuger will (?) halt in startup code
+press continue button in Debug bar to go to first break point
+note C6 has max 4 breakpoint and 4  watch variables (S3 has only 2)
+try to stop always to stop the GDB server using the square stop button in the debug menu
+
+
+If GDB server refuses to connect, try:
+- start debugger again 
+- disconnect usb cable for some second and try again
+(- reset C6 press Boot and Reset Button on C6 in order: Bdown Rdown Rup Bup)
+(- restart IDE)

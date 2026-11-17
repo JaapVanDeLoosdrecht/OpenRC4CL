@@ -7,7 +7,7 @@ Uses the ESP-NOW protocol transmitted via the 2.4 GHz Wi-Fi band.
 
 One PCB for Tx, Rx and Timer.
 
-The software is released as opensource under the MIT license.
+The software and PCB design files are released as opensource under the MIT license.
 
 Note this project is Work In Progress and is developed for ESP32 C6, does not need external antennas.
 
@@ -16,7 +16,7 @@ Feedback is welcome and I am open to ideas and/or collaboration.
 See for discussion the (Dutch) Modelbouw forum https://www.modelbouwforum.nl/threads/openrc4cl-diy-lb-met-rc-functies.294026/ .
 
 ![Tx and Rx V1.0](photos/First-Tx-and-Rx-PCB-V1_0.jpg)
-Tx and Rx PCB V1.0
+Rx and Tx PCB V1.0
 
 ## NOTE: there are two PCBs:
 
@@ -27,7 +27,7 @@ PCB V1 (4 channels) is tested
 PCB V2 is under design and not yet tested. It is smaller and for 2 channels.
 
 ![Fritzing](photos/Fritzing-PCB-V1_0.jpg)
-Both PCBs are designed with Fritzing and the design files are included in this repro.
+The PCBs are designed with Fritzing and the design files are included in this repro.
 
 ## Functional overview OpenRC4CL.
 
